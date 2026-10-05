@@ -72,7 +72,7 @@ export default {
       this.editor.setFontSize(state.fontSize);
     });
     if(this.databaseIndex && this.databaseName) {
-      dbMetadataStore.fetchDbMeta(this.databaseIndex, this.tabId, this.databaseName).then(() => {
+      dbMetadataStore.fetchDbMeta(this.databaseIndex, this.workspaceId, this.databaseName, this.tabId).then(() => {
         this.setupCompleter(); 
       })
     }

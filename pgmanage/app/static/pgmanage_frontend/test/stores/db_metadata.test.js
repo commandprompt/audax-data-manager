@@ -64,6 +64,19 @@ describe("dbMetadata store", () => {
     });
   });
 
+  it("sends tab_id when fetching database metadata", async () => {
+    axios.post.mockResolvedValue({ data: { schemas: [] } });
+
+    await dbMetadataStore.fetchDbMeta(1, "workspace1", "test_db", "tab1");
+
+    expect(axios.post).toHaveBeenCalledWith("/get_database_meta/", {
+      database_index: 1,
+      workspace_id: "workspace1",
+      database_name: "test_db",
+      tab_id: "tab1",
+    });
+  });
+
   it("does not fetch metadata if it already exists", async () => {
     dbMetadataStore.dbMeta = {
       1: {

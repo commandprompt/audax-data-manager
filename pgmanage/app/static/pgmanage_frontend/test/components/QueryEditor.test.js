@@ -6,6 +6,7 @@ import ContextMenu from "@imengyu/vue3-context-menu";
 import { format } from "sql-formatter";
 import { showToast } from "@src/notification_control";
 import { emitter } from "@src/emitter";
+import { dbMetadataStore } from "@src/stores/stores_initializer";
 
 vi.mock("@imengyu/vue3-context-menu", () => ({
   default: { showContextMenu: vi.fn() },
@@ -87,6 +88,10 @@ describe("QueryEditor.vue", () => {
     expect(global.ace.edit).toHaveBeenCalled();
     expect(wrapper.vm.editor.setTheme).toHaveBeenCalledWith("ace/theme/omnidb");
     expect(wrapper.vm.editor).toBeDefined();
+  });
+
+  it("fetches db meta with workspace id and tab id on mount", () => {
+    expect(dbMetadataStore.fetchDbMeta).toHaveBeenCalledWith(1, "ws1", "mydb", "tab1");
   });
 
   it("emits editorChange on content change", () => {
