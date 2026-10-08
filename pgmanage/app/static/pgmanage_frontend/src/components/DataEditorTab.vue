@@ -51,6 +51,7 @@ import ContextMenuMixin from "../mixins/tabulator_context_menu_mixin";
 import { markRaw } from "vue";
 import axios from 'axios'
 import Knex from 'knex'
+import isEqual from 'lodash/isEqual';
 import isEqualWith from 'lodash/isEqualWith';
 import zipObject from 'lodash/zipObject';
 import forIn from 'lodash/forIn';
@@ -718,7 +719,7 @@ export default {
 
       let rowData = cell.getRow().getData()
       let rowMeta = rowData["rowMeta"]
-      let originalRow = this.tableData.find((row) => row["rowMeta"].initial_id == rowMeta.initial_id)
+      let originalRow = this.tableData.find((row) => isEqual(row["rowMeta"].initial_id, rowMeta.initial_id))
 
       if (originalRow) {
         rowMeta.is_dirty = !isEqualWith(rowData, originalRow, (val1, val2, key) => {
@@ -759,13 +760,13 @@ export default {
         showToast("error", response.data)
       } else {
         //store table data into original var, clone it to the working copy
-        let pkIndex = this.tableColumns.findIndex((col) => col.is_primary) || 0
+        const pkIndexes = this.tableColumns.flatMap((col, idx) => col.is_primary ? [idx] : [])
         this.tableData = response.data.rows.map((row, index) => {
           let rowMeta = {
             is_dirty: false,
             is_new: false,
             is_deleted: false,
-            initial_id: row[pkIndex]
+            initial_id: pkIndexes.map((idx) => row[idx])
           }
           return {id: index, rowMeta: rowMeta, ...row}
         })
@@ -815,7 +816,7 @@ export default {
     },
     revertRow(rowMeta, rowNum) {
       let sourceRow = this.tableData.find(
-        (row) => row["rowMeta"].initial_id == rowMeta.initial_id
+        (row) => isEqual(row["rowMeta"].initial_id, rowMeta.initial_id)
       );
       let copyRow = JSON.parse(JSON.stringify(sourceRow));
       this.tabulator.updateData([{ id: rowNum, ...copyRow }]).then(() => {
@@ -844,10 +845,7 @@ export default {
       let inserts = []
       let updates = []
       let changes = this.pendingChanges
-      let pkColName = 'id'
-
-      if(this.hasPK)
-        pkColName = this.tableColumns.find((col) => col.is_primary).name || 'id'
+      let pkColNames = this.primaryKeys
 
       changes.forEach(function(change) {
         let rowMeta = change["rowMeta"]
@@ -865,9 +863,8 @@ export default {
 
           inserts.push(insert)
         }
-        if(rowMeta.is_dirty){
-          
-          let originalRow = this.tableData.find((row) => row["rowMeta"].initial_id == rowMeta.initial_id)
+        if(rowMeta.is_dirty && !rowMeta.is_deleted){
+          let originalRow = this.tableData.find((row) => isEqual(row["rowMeta"].initial_id, rowMeta.initial_id))
           let updateArgs = {}
 
           forIn(changeWitNoRowmeta, (value, key) => {
@@ -876,12 +873,12 @@ export default {
             }
           })
 
-          updates.push(this.knex(this.talbleUnquoted).withSchema(this.schema).where(pkColName, rowMeta.initial_id).update(updateArgs))
+          updates.push(this.knex(this.talbleUnquoted).withSchema(this.schema).whereIn(pkColNames, [rowMeta.initial_id]).update(updateArgs))
         }
       }, this)
       let deletableIds = changes.filter((c) => c["rowMeta"].is_deleted).map((c) => {return c["rowMeta"].initial_id})
       if(deletableIds.length > 0)
-        deletes.push(this.knex(this.talbleUnquoted).withSchema(this.schema).whereIn(pkColName, deletableIds).del())
+        deletes.push(this.knex(this.talbleUnquoted).withSchema(this.schema).whereIn(pkColNames, deletableIds).del())
 
       let insQ = []
       if(inserts.length)
