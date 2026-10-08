@@ -470,7 +470,7 @@ def get_table_columns(request, database):
             table_columns.append({
                 "data_type": column['data_type'],
                 "name": column['column_name'],
-                "is_primary": column['column_name'] in pk_column_names,
+                "is_primary": column.get("name_raw", column["column_name"]) in pk_column_names,
             })
 
     except Exception as exc:
