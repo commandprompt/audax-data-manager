@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Union
 
 from app.include import OmniDatabase
 from app.include.Session import Session
+from django.conf import settings
 
 
 class Client:
@@ -20,6 +21,7 @@ class Client:
         returning_data (deque): A list-like container containing data returned by the client.
         _connection_sessions (dict): A dictionary storing connection sessions for the client.
         last_update (datetime.datetime): The timestamp of the client's last update.
+        terminated (bool): True when the cleanup thread must close all tabs and remove the client.
     """
 
     to_be_removed = []
@@ -31,6 +33,7 @@ class Client:
         self.returning_data = deque()
         self._connection_sessions = {}
         self.last_update = datetime.now()
+        self.terminated = False
 
     @property
     def connection_sessions(self) -> Union[Dict[str, Any], Dict]:
@@ -548,6 +551,26 @@ class ClientManager:
         """
         self.clients.pop(client_id, None)
 
+    def terminate_client(self, client_id: str) -> None:
+        """Ends the client with the specified client_id.
+
+        The method flags the client and its tabs, and releases the locks.
+        The cleanup thread then closes all tabs and removes the client.
+        The method does not wait for the cleanup thread.
+
+        Args:
+            client_id (str): The ID of the client to be terminated.
+
+        Returns:
+            None
+        """
+        client = self.get_client(client_id=client_id)
+        if client is None:
+            return
+
+        self.clear_client(client_id=client_id)
+        client.terminated = True
+
 
 client_manager = ClientManager()
 
@@ -571,8 +594,10 @@ def cleanup_thread():
         for client_id in list(client_manager.clients):
             client = client_manager.get_client(client_id=client_id)
             client_timeout_reached = datetime.now() > client.last_update + timedelta(
-                0, 3600
+                0, settings.CLIENT_TIMEOUT
             )
+            if client.terminated:
+                client_timeout_reached = True
 
             for workspace_id in list(client.connection_sessions):
                 for tab_id in list(
