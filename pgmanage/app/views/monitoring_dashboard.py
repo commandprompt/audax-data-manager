@@ -16,6 +16,17 @@ from RestrictedPython import compile_restricted, safe_builtins
 from RestrictedPython.Eval import default_guarded_getitem
 from RestrictedPython.Guards import safer_getattr
 
+WIDGET_DIALECT_ALIASES = {
+    "mariadb": "mysql",
+    "rdspostgresql": "postgresql",
+}
+
+
+def dialect_of(technology):
+    """Returns the technology whose widgets the given technology reuses."""
+    return WIDGET_DIALECT_ALIASES.get(technology, technology)
+
+
 builtin_monitoring_widgets = {}
 
 
@@ -51,7 +62,7 @@ def _hook_import(name, *args, **kwargs):
 @database_required(check_timeout=False, open_connection=False)
 def monitoring_widgets_list(request, database):
     widget_list = []
-    db_type = 'mysql' if database.db_type == 'mariadb' else database.db_type
+    db_type = dialect_of(database.db_type)
     try:
         for _, mon_widget in builtin_monitoring_widgets.items():
             if mon_widget.get("dbms") == db_type:
@@ -192,7 +203,8 @@ def monitoring_widgets(request, database):
         # get widget configs for the curernt connection
 
         builtin_widget_ids = [
-            k[1] for k,v in builtin_monitoring_widgets.items() if v.get("dbms") == technology.name
+            k[1] for k,v in builtin_monitoring_widgets.items()
+            if v.get("dbms") == dialect_of(technology.name)
         ]
         available_widget_ids = builtin_widget_ids + custom_widget_ids
         widget_configs = MonWidgetsConnections.objects.filter(
@@ -207,7 +219,8 @@ def monitoring_widgets(request, database):
                 if(widget_id < 0 ):
                     widget = next((
                         w for w in builtin_monitoring_widgets.values()
-                        if w.get('dbms') == technology.name and w.get('id') == widget_id
+                        if w.get('dbms') == dialect_of(technology.name)
+                        and w.get('id') == widget_id
                     ), None)
                     if widget:
                         widget_config = MonWidgetsConnections(
@@ -268,7 +281,7 @@ def monitoring_widgets(request, database):
                     if (
                         mon_widget.get("id") == widget_config.unit
                         and mon_widget.get("plugin_name") == widget_config.plugin_name
-                        and mon_widget.get("dbms") == database.db_type
+                        and mon_widget.get("dbms") == dialect_of(database.db_type)
                     ):
                         found = True
                         widget = {

@@ -1,5 +1,5 @@
 import moment from "moment";
-import { showAlertText } from "../notification_control";
+import { showAlertText, showToast } from "../notification_control";
 import axios from "axios";
 
 export class requestHistoryQueue {
@@ -95,6 +95,9 @@ export function saveRequestLog(response) {
 export function axiosHooks(logger, axiosInstance) {
   axiosInstance.interceptors.response.use(
     (response) => {
+      if (response.data?.warning) {
+        showToast("info", response.data.warning);
+      }
       saveRequestLog(response);
       return response;
     },

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import paramiko
 from app.include import OmniDatabase
 from app.models.main import Connection, UserDetails
+from app.utils.auth_methods import uses_iam_auth
 from app.utils.crypto import decrypt
 from app.utils.key_manager import key_manager
 from django.contrib.sessions.backends.db import SessionStore
@@ -224,11 +225,11 @@ class Session(object):
                 ):
                     # Try passwordless connection
                     self.databases[database_index]["database"].connection.password = ""
-                    test_response = self.databases[database_index][
+                    test_response, status = self.databases[database_index][
                         "database"
                     ].TestConnection()
 
-                    if test_response == "Connection successful.":
+                    if status:
                         s = SessionStore(session_key=self.user_key)
                         s["pgmanage_session"].databases[database_index][
                             "prompt_timeout"
@@ -298,8 +299,10 @@ class Session(object):
                     }
                     # this is for sqlite3 db connection because it has now password
                     password = decrypt(conn.password, key) if conn.password else ""
+                    credentials_extra = conn.get_credentials_extra(key)
                 except UnicodeDecodeError:
                     password = "wrong decrypted password"
+                    credentials_extra = {}
                     decryption_failed = True
                 # in case of decrypt error, set up bad_decrypt variable as True.
                 database = OmniDatabase.Generic.InstantiateDatabase(
@@ -314,9 +317,13 @@ class Session(object):
                     conn_string=conn.conn_string,
                     parse_conn_string=True,
                     connection_params=conn.connection_params,
+                    credentials_extra=credentials_extra,
                 )
 
-                prompt_password = conn.password == ""
+                # IAM authentication gets a token for each connection, thus never ask a password
+                prompt_password = conn.password == "" and not uses_iam_auth(
+                    credentials_extra
+                )
 
                 self.AddDatabase(
                     conn.id,

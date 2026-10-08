@@ -5,7 +5,7 @@ import { showToast, showConfirm } from "../notification_control";
 import { createRequest, removeContext } from "../long_polling";
 import moment from "moment";
 import { emitter } from "../emitter";
-import { queryRequestCodes, operationModes } from "../constants";
+import { queryRequestCodes, operationModes, dialectOf } from "../constants";
 import { showMenuNewTabOuter, renameTab } from "../workspace";
 
 import postgresqlIcon from '@src/assets/images/db_icons/postgresql.svg'
@@ -308,6 +308,7 @@ const useTabsStore = defineStore("tabs", {
 
           const dbIcons = {
             'postgresql': postgresqlIcon,
+            'rdspostgresql': postgresqlIcon,
             'mysql': mysqlIcon,
             'mariadb': mariadbIcon,
             'oracle': oracleIcon,
@@ -350,7 +351,7 @@ const useTabsStore = defineStore("tabs", {
               });
             },
           });
-          connTab.metaData.selectedDBMS = connection.technology;
+          connTab.metaData.selectedDBMS = dialectOf(connection.technology);
           connTab.metaData.consoleHelp = connection.console_help;
           connTab.metaData.selectedDatabaseIndex = connection.id;
           connTab.metaData.selectedDatabase =

@@ -100,6 +100,7 @@ class ConnectionsTests(TestCase):
             },
             "conn_string": "",
             "connection_params": {},
+            "credentials_extra": {},
             "password_set": True,
             "color_label": 0,
             "autocomplete": False,
@@ -303,12 +304,23 @@ class ConnectionsTests(TestCase):
 
     @patch.object(PostgreSQL, "TestConnection")
     def test_test_connection_view_authorized(self, testConnection_mock):
-        testConnection_mock.return_value = "Connection successful."
+        testConnection_mock.return_value = ("Connection successful.", True)
         response = self.client.post(
             reverse("test_connection"), data=self.test_connection_data
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], "Connection successful.")
+
+    @patch.object(PostgreSQL, "TestConnection")
+    def test_test_connection_view_reports_a_failure(self, testConnection_mock):
+        testConnection_mock.return_value = ("No such host.", False)
+        response = self.client.post(
+            reverse("test_connection"), data=self.test_connection_data
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["data"], "No such host.")
 
     def test_test_connection_view_unauthorized(self):
         self.client.logout()
@@ -423,6 +435,151 @@ class ConnectionsTests(TestCase):
             response_data.get("data"),
             "Field 'color_label' expected a number but got '#FF0000'.",
         )
+
+    def test_save_connection_view_stores_encrypted_iam_credentials(self):
+        self.test_connection_data.update(
+            {
+                "password": "",
+                "password_set": False,
+                "credentials_extra": {
+                    "aws_region": "us-east-1",
+                    "access_key_id": "key-id",
+                    "secret_access_key": "secret",
+                },
+            }
+        )
+
+        response = self.client.post(
+            reverse("save_connection"), self.test_connection_data
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.test_connection.refresh_from_db()
+        stored = self.test_connection.credentials_extra
+        self.assertNotEqual(stored["access_key_id"], "key-id")
+        self.assertNotEqual(stored["secret_access_key"], "secret")
+
+        key = USERS["ADMIN"]["PASSWORD"]
+        self.assertEqual(
+            self.test_connection.get_credentials_extra(key),
+            {
+                "aws_region": "us-east-1",
+                "access_key_id": "key-id",
+                "secret_access_key": "secret",
+            },
+        )
+
+    def test_save_connection_view_keeps_a_public_credential_readable(self):
+        self.test_connection_data.update(
+            {
+                "credentials_extra": {
+                    "aws_region": "us-east-1",
+                    "access_key_id": "key-id",
+                }
+            }
+        )
+
+        with patch.object(
+            Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)
+        ):
+            response = self.client.post(
+                reverse("save_connection"), self.test_connection_data
+            )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.test_connection.refresh_from_db()
+        self.assertEqual(
+            self.test_connection.credentials_extra["aws_region"], "us-east-1"
+        )
+        self.assertNotEqual(
+            self.test_connection.credentials_extra["access_key_id"], "key-id"
+        )
+
+    def test_save_connection_view_does_not_prompt_password_with_iam(self):
+        self.test_connection_data.update(
+            {
+                "password": "",
+                "password_set": False,
+                "credentials_extra": {
+                    "aws_region": "us-east-1",
+                    "access_key_id": "key-id",
+                    "secret_access_key": "secret",
+                },
+            }
+        )
+
+        response = self.client.post(
+            reverse("save_connection"), self.test_connection_data
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        session = self.client.session["pgmanage_session"]
+        self.assertFalse(
+            session.databases[self.test_connection.id]["prompt_password"]
+        )
+
+    def test_save_connection_view_keeps_stored_iam_secret(self):
+        key = USERS["ADMIN"]["PASSWORD"]
+        self.test_connection.credentials_extra = {
+            "aws_region": encrypt("us-east-1", key),
+            "access_key_id": encrypt("key-id", key),
+            "secret_access_key": encrypt("secret", key),
+        }
+        self.test_connection.save()
+
+        self.test_connection_data.update(
+            {
+                "password": "",
+                "password_set": False,
+                "credentials_extra": {
+                    "aws_region": "eu-west-1",
+                    "access_key_id": "",
+                    "secret_access_key": "",
+                },
+            }
+        )
+
+        response = self.client.post(
+            reverse("save_connection"), self.test_connection_data
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.test_connection.refresh_from_db()
+        credentials = self.test_connection.get_credentials_extra(key)
+        self.assertEqual(credentials["aws_region"], "eu-west-1")
+        self.assertEqual(credentials["access_key_id"], "key-id")
+        self.assertEqual(credentials["secret_access_key"], "secret")
+
+    def test_get_connections_view_masks_iam_secrets(self):
+        key = USERS["ADMIN"]["PASSWORD"]
+        self.test_connection.credentials_extra = {
+            "aws_region": "us-east-1",
+            "access_key_id": encrypt("key-id", key),
+            "secret_access_key": encrypt("secret", key),
+        }
+        self.test_connection.save()
+
+        with patch.object(
+            Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)
+        ):
+            response = self.client.get(reverse("get_connections"))
+
+        self.assertEqual(response.status_code, 200)
+
+        connection = response.json()["data"]["connections"][0]
+        self.assertEqual(
+            connection["credentials_extra"],
+            {
+                "aws_region": "us-east-1",
+                "access_key_id": "",
+                "secret_access_key": "",
+            },
+        )
+
 
     def test_save_connection_url_resolves_save_connection_view(self):
         view = resolve("/save_connection/")

@@ -119,6 +119,7 @@ import { Tooltip } from "bootstrap";
 import { handleError } from "../logging/utils";
 import SearchModal from "./SearchModal.vue";
 import debounce from 'lodash/debounce'
+import { dialectOf } from "../constants";
 
 export default {
   name: "WorkspaceTab",
@@ -232,7 +233,7 @@ export default {
       let tabData = tabsStore.getPrimaryTabById(this.workspaceId);
 
       tabData.metaData.selectedDatabaseIndex = value;
-      tabData.metaData.selectedDBMS = connObject.technology;
+      tabData.metaData.selectedDBMS = dialectOf(connObject.technology);
       tabData.metaData.consoleHelp = connObject.console_help;
       tabData.metaData.selectedDatabase =
         connObject.last_used_database || connObject.service;
@@ -246,7 +247,7 @@ export default {
         });
       } else {
         axios
-          .post(`/get_databases_${connObject.technology}/`, {
+          .post(`/get_databases_${dialectOf(connObject.technology)}/`, {
             database_index: value,
             workspace_id: this.workspaceId,
           })

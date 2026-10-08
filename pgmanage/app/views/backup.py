@@ -380,7 +380,7 @@ def create_backup(request, database):
                 user=request.user,
             )
 
-        job.env["PGPASSWORD"] = database.password
+        job.env["PGPASSWORD"] = database.connection.GetPassword()
 
         job.start()
     except Exception as exc:

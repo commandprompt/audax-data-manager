@@ -199,7 +199,7 @@ def create_restore(request, database):
             description=restore_message, cmd=utility_path, args=args, user=request.user
         )
 
-        job.env["PGPASSWORD"] = database.password
+        job.env["PGPASSWORD"] = database.connection.GetPassword()
 
         job.start()
     except Exception as exc:

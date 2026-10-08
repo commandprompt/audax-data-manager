@@ -127,7 +127,8 @@
                         -webkit-mask-image: url("../images/db_icons/oracle.svg");
                     }
 
-                    &-postgresql {
+                    &-postgresql,
+                    &-rdspostgresql {
                         mask-image: url("../images/db_icons/postgresql.svg");
                         -webkit-mask-image: url("../images/db_icons/postgresql.svg");
                     }

@@ -119,8 +119,17 @@ const dbTechNames = {
   mysql: 'MySQL',
   mariadb: 'MariaDB',
   postgresql: 'PostgreSQL',
+  rdspostgresql: 'RDS Postgresql',
   oracle: 'Oracle',
   mssql: 'SQL Server'
+}
+
+const dialectAliases = {
+  rdspostgresql: 'postgresql',
+}
+
+function dialectOf(technology) {
+  return dialectAliases[technology] ?? technology
 }
 
 const minFontSize = 10;
@@ -159,6 +168,7 @@ export {
   editorModeMap,
   dataEditorFilterModes,
   dbTechNames,
+  dialectOf,
   sqlFormatterDialectMap,
   knexDialectMap,
 };

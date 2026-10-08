@@ -7,6 +7,7 @@ from app.include import OmniDatabase
 from app.include.Session import Session
 from app.include.Spartacus.Database import supported_rdbms
 from app.models import Connection, Group, GroupConnection, Tab, Technology
+from app.utils.auth_methods import uses_iam_auth
 from app.utils.crypto import decrypt, encrypt
 from app.utils.decorators import session_required, user_authenticated
 from app.utils.key_manager import key_manager
@@ -64,6 +65,7 @@ def get_connections(request, session: Session):
                     'key_set': False if conn.ssh_key.strip() == '' else True
                 },
                 'connection_params': conn.connection_params,
+                'credentials_extra': conn.masked_credentials_extra(),
                 'last_used_database': conn.last_used_database,
                 'last_access_date': conn.last_access_date,
                 'autocomplete': conn.autocomplete,
@@ -208,6 +210,7 @@ def test_connection(request):
     ssh_password = conn_object['tunnel']['password'].strip()
     ssh_key = conn_object['tunnel']['key']
     key = key_manager.get(request.user)
+    credentials_extra = dict(conn_object.get('credentials_extra') or {})
 
     if conn_id:
         conn = Connection.objects.filter(id=conn_id).first()
@@ -223,6 +226,7 @@ def test_connection(request):
                 ssh_password = decrypt(conn.ssh_password, key) if conn.ssh_password else ''
             if conn_object['tunnel']['key'].strip() == '':
                 ssh_key = decrypt(conn.ssh_key, key) if conn.ssh_key else ''
+            credentials_extra = conn.resolve_credentials_extra(credentials_extra, key)
         except UnicodeDecodeError:
             return JsonResponse(data={"data": "There was an error decrypting the passwords. Please try re-saving them to encrypt with the new key."}, status=400)
     if conn_type == 'terminal':
@@ -261,7 +265,8 @@ def test_connection(request):
             '',
             conn_string=conn_object['conn_string'],
             parse_conn_string=True,
-            connection_params=conn_params
+            connection_params=conn_params,
+            credentials_extra=credentials_extra
         )
 
         # create tunnel if enabled
@@ -293,9 +298,9 @@ def test_connection(request):
                 database.connection.host = '127.0.0.1'
                 database.connection.port = server.local_bind_port
 
-                message = database.TestConnection()
+                message, status = database.TestConnection()
                 server.close()
-                if message != 'Connection successful.':
+                if not status:
                     return JsonResponse({"data": message}, status=400)
 
             except Exception as exc:
@@ -305,11 +310,11 @@ def test_connection(request):
                 return JsonResponse({"data": msg}, status=400)
 
         else:
-            message = database.TestConnection()
-            if message != 'Connection successful.':
+            message, status = database.TestConnection()
+            if not status:
                 return JsonResponse({"data": message}, status=400)
 
-    return HttpResponse(status=200)
+    return JsonResponse({"data": message})
 
 
 @user_authenticated
@@ -353,6 +358,7 @@ def save_connection(request, session: Session):
                 connection_params=conn_object['connection_params'],
                 color_label= conn_object['color_label']
             )
+            conn.set_credentials_extra(conn_object.get('credentials_extra'), key)
             conn.save()
         # update
         else:
@@ -402,6 +408,8 @@ def save_connection(request, session: Session):
             for k, v in conn_object["connection_params"].items():
                 conn.connection_params[k] = v
 
+            conn.set_credentials_extra(conn_object.get('credentials_extra'), key)
+
             conn.use_tunnel = conn_object['tunnel']['enabled']
             conn.conn_string = conn_object['conn_string']
             conn.autocomplete = conn_object.get('autocomplete')
@@ -428,6 +436,7 @@ def save_connection(request, session: Session):
         }
         # this is for sqlite3 db connection because it has no password
         password = decrypt(conn.password, key) if conn.password else ''
+        credentials_extra = conn.get_credentials_extra(key)
         database = OmniDatabase.Generic.InstantiateDatabase(
             conn.technology.name,
             conn.server,
@@ -439,10 +448,12 @@ def save_connection(request, session: Session):
             conn.alias,
             conn_string=conn.conn_string,
             parse_conn_string=True,
-            connection_params=conn.connection_params
+            connection_params=conn.connection_params,
+            credentials_extra=credentials_extra
         )
 
-        prompt_password = conn.password == ''
+        # IAM authentication gets a token for each connection, thus never ask a password
+        prompt_password = conn.password == '' and not uses_iam_auth(credentials_extra)
 
         session.AddDatabase(conn.id, conn.technology.name, database, prompt_password, tunnel_information, conn.alias,
                               conn_object['public'])

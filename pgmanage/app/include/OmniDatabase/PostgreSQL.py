@@ -286,20 +286,22 @@ class PostgreSQL:
 
     @lock_required
     def TestConnection(self):
-        return_data = ''
+        message = ''
+        status = False
         if self.conn_string and self.conn_string_error!='':
-            return self.conn_string_error
+            return self.conn_string_error, status
         try:
             self.connection.connection_params["connect_timeout"] = 5
             self.connection.Open()
             schema = self.QuerySchemas()
             if len(schema.Rows) > 0:
-                return_data = 'Connection successful.'
+                message = 'Connection successful.'
+                status = True
             self.connection.Close()
         except Exception as exc:
-            return_data = str(exc)
+            message = str(exc)
         self.connection.connection_params.pop("connect_timeout")
-        return return_data
+        return message, status
 
     def GetErrorPosition(self, p_error_message, sql_cmd):
         vector = str(p_error_message).split('\n')

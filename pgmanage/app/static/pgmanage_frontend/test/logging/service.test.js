@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import axios from "axios";
 import * as logging_service from "@src/logging/service";
 import { requestHistory } from "@src/logging/service";
-import { showAlertText } from "@src/notification_control";
+import { showAlertText, showToast } from "@src/notification_control";
 
 Date.now = vi.fn(() => new Date("2024-08-05T12:33:37.000Z"));
 
 vi.mock("@src/notification_control", () => ({
   showAlertText: vi.fn(),
+  showToast: vi.fn(),
 }));
 
 describe("requestHistoryQueue", () => {
@@ -105,6 +106,22 @@ describe("axiosHooks", () => {
     const result = await onSuccess(response);
     expect(result).toEqual(response);
     expect(requestHistoryQueueMock).toHaveBeenCalledOnce();
+  });
+
+  it("should show a toast when the response has a warning", async () => {
+    logging_service.axiosHooks(logger, axios);
+
+    const onSuccess = interceptors.response.use.mock.calls[0][0];
+    await onSuccess({ ...response, data: { warning: "Mind the gap." } });
+    expect(showToast).toHaveBeenCalledWith("info", "Mind the gap.");
+  });
+
+  it("should not show a toast when the response has no warning", async () => {
+    logging_service.axiosHooks(logger, axios);
+
+    const onSuccess = interceptors.response.use.mock.calls[0][0];
+    await onSuccess(response);
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it("should handle error and show alert on 401", async () => {

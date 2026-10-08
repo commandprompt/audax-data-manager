@@ -214,17 +214,19 @@ class MySQL:
         return rules
 
     def TestConnection(self):
-        return_data = ''
+        message = ''
+        status = False
         if self.conn_string and self.conn_string_error!='':
-            return self.conn_string_error
+            return self.conn_string_error, status
 
         try:
             self.connection.Open()
             self.connection.Close()
-            return_data = 'Connection successful.'
+            message = 'Connection successful.'
+            status = True
         except Exception as exc:
-            return_data = str(exc)
-        return return_data
+            message = str(exc)
+        return message, status
 
     def GetErrorPosition(self, error_message, sql_cmd):
         ret = None

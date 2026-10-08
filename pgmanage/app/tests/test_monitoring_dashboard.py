@@ -8,6 +8,7 @@ from app.utils.crypto import encrypt
 from app.views.monitoring_dashboard import (
     create_dashboard_monitoring_widget,
     create_widget,
+    dialect_of,
     monitoring_widgets,
     monitoring_widgets_list,
     refresh_monitoring_widget,
@@ -451,3 +452,14 @@ class MonitoringDashboardTests(TestCase):
         view = resolve("/monitoring-widgets/test")
 
         self.assertEqual(view.func.__name__, test_monitoring_widget.__name__)
+
+
+class WidgetDialectTests(TestCase):
+    def test_a_technology_without_an_alias(self):
+        self.assertEqual(dialect_of("postgresql"), "postgresql")
+
+    def test_mariadb_reuses_the_mysql_widgets(self):
+        self.assertEqual(dialect_of("mariadb"), "mysql")
+
+    def test_rdspostgresql_reuses_the_postgresql_widgets(self):
+        self.assertEqual(dialect_of("rdspostgresql"), "postgresql")

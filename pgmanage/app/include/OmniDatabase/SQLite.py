@@ -164,16 +164,18 @@ class SQLite:
         return rules
 
     def TestConnection(self):
-        return_data = ''
+        message = ''
+        status = False
         try:
             if Path(self.service).expanduser().is_file():
                 self.connection.Query("PRAGMA schema_version;")
-                return_data = 'Connection successful.'
+                message = 'Connection successful.'
+                status = True
             else:
-                return_data = 'File does not exist, if you try to manage this connection a database file will be created.'
+                message = 'File does not exist, if you try to manage this connection a database file will be created.'
         except Exception as exc:
-            return_data = str(exc)
-        return return_data
+            message = str(exc)
+        return message, status
 
     @lock_required
     def QueryTables(self, *args):

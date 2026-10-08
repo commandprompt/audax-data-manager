@@ -216,10 +216,10 @@ def renew_password(request, session: Session):
     else:
         database_object["tunnel"]["password"] = password
 
-    test = database_object["database"].TestConnection()
+    message, status = database_object["database"].TestConnection()
 
-    if test != "Connection successful.":
-        return JsonResponse({"data": test}, status=400)
+    if not status:
+        return JsonResponse({"data": message}, status=400)
 
     database_object["prompt_timeout"] = datetime.now()
     request.session["pgmanage_session"] = session

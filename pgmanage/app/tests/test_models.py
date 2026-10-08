@@ -360,39 +360,184 @@ class ConnectionModelTests(TestCase):
         color_label_default = connection._meta.get_field("color_label").default
         self.assertEqual(color_label_default, 0)
 
-    @patch("app.models.main.encrypt", side_effect=mock_encrypt)
+    def test_credentials_extra_default(self):
+        connection = Connection.objects.get(id=1)
+        credentials_extra_default = connection._meta.get_field(
+            "credentials_extra"
+        ).default
+        self.assertEqual(credentials_extra_default, dict)
+
     @patch("app.models.main.decrypt", side_effect=mock_decrypt)
-    def test_reencrypt_field_success(self, mock_decrypt, mock_encrypt):
+    def test_get_credentials_extra_decrypts_every_value(self, mock_decrypt):
         connection = Connection(
             user_id=1,
-            password="encrypted_old_password_with_old_key",
-            ssh_password="encrypted_old_ssh_password_with_old_key",
-            ssh_key="encrypted_old_ssh_key_with_old_key",
+            credentials_extra={
+                "access_key_id": "encrypted_key_id_with_key",
+                "secret_access_key": "encrypted_secret_with_key",
+            },
         )
 
-        connection.reencrypt_field("password", "old_key", "new_key")
-        self.assertEqual(connection.password, "encrypted_old_password_with_new_key")
-
-        connection.reencrypt_field("ssh_password", "old_key", "new_key")
         self.assertEqual(
-            connection.ssh_password, "encrypted_old_ssh_password_with_new_key"
+            connection.get_credentials_extra("key"),
+            {"access_key_id": "key_id", "secret_access_key": "secret"},
         )
 
-        connection.reencrypt_field("ssh_key", "old_key", "new_key")
-        self.assertEqual(connection.ssh_key, "encrypted_old_ssh_key_with_new_key")
+    @patch("app.models.main.decrypt", side_effect=mock_decrypt)
+    def test_get_credentials_extra_keeps_a_public_value(self, mock_decrypt):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_key",
+            },
+        )
+
+        with patch.object(Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)):
+            self.assertEqual(
+                connection.get_credentials_extra("key"),
+                {"aws_region": "us-east-1", "access_key_id": "key_id"},
+            )
+
+    @patch("app.models.main.decrypt", side_effect=mock_decrypt)
+    def test_resolve_credentials_extra_fills_in_empty_secrets(self, mock_decrypt):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={
+                "access_key_id": "encrypted_key_id_with_key",
+                "secret_access_key": "encrypted_secret_with_key",
+            },
+        )
+
+        resolved = connection.resolve_credentials_extra(
+            {"access_key_id": "", "secret_access_key": "typed-secret"}, "key"
+        )
+
+        self.assertEqual(
+            resolved,
+            {"access_key_id": "key_id", "secret_access_key": "typed-secret"},
+        )
+
+    def test_masked_credentials_extra_hides_every_value(self):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_key",
+            },
+        )
+
+        self.assertEqual(
+            connection.masked_credentials_extra(),
+            {"aws_region": "", "access_key_id": ""},
+        )
+
+    def test_masked_credentials_extra_shows_a_public_value(self):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_key",
+            },
+        )
+
+        with patch.object(Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)):
+            self.assertEqual(
+                connection.masked_credentials_extra(),
+                {"aws_region": "us-east-1", "access_key_id": ""},
+            )
+
+    @patch("app.models.main.encrypt", side_effect=mock_encrypt)
+    def test_set_credentials_extra_encrypts_every_value(self, mock_encrypt):
+        connection = Connection(user_id=1)
+
+        connection.set_credentials_extra(
+            {"aws_region": "us-east-1", "access_key_id": "key_id"}, "key"
+        )
+
+        self.assertEqual(
+            connection.credentials_extra,
+            {
+                "aws_region": "encrypted_us-east-1_with_key",
+                "access_key_id": "encrypted_key_id_with_key",
+            },
+        )
+
+    @patch("app.models.main.encrypt", side_effect=mock_encrypt)
+    def test_set_credentials_extra_stores_a_public_value_as_it_is(self, mock_encrypt):
+        connection = Connection(user_id=1)
+
+        with patch.object(Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)):
+            connection.set_credentials_extra(
+                {"aws_region": "us-east-1", "access_key_id": "key_id"}, "key"
+            )
+
+        self.assertEqual(
+            connection.credentials_extra,
+            {
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_key",
+            },
+        )
+
+    @patch("app.models.main.encrypt", side_effect=mock_encrypt)
+    def test_set_credentials_extra_keeps_stored_secret(self, mock_encrypt):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={"access_key_id": "encrypted_key_id_with_key"},
+        )
+
+        connection.set_credentials_extra({"access_key_id": ""}, "key")
+
+        self.assertEqual(
+            connection.credentials_extra,
+            {"access_key_id": "encrypted_key_id_with_key"},
+        )
 
     @patch("app.models.main.encrypt", side_effect=mock_encrypt)
     @patch("app.models.main.decrypt", side_effect=mock_decrypt)
-    def test_reencrypt_field_empty_field(self, mock_decrypt, mock_encrypt):
+    def test_reencrypt_credentials_extra(self, mock_decrypt, mock_encrypt):
         connection = Connection(
             user_id=1,
-            password="",
-            ssh_password="encrypted_old_ssh_password_with_old_key",
-            ssh_key="encrypted_old_ssh_key_with_old_key",
+            credentials_extra={
+                "access_key_id": "encrypted_key_id_with_old_key",
+                "secret_access_key": "encrypted_secret_with_old_key",
+            },
         )
 
-        connection.reencrypt_field("password", "old_key", "new_key")
-        self.assertEqual(connection.password, "")
+        connection.reencrypt_credentials_extra("old_key", "new_key")
+
+        self.assertEqual(
+            connection.credentials_extra,
+            {
+                "access_key_id": "encrypted_key_id_with_new_key",
+                "secret_access_key": "encrypted_secret_with_new_key",
+            },
+        )
+
+    @patch("app.models.main.encrypt", side_effect=mock_encrypt)
+    @patch("app.models.main.decrypt", side_effect=mock_decrypt)
+    def test_reencrypt_credentials_extra_keeps_a_public_value(
+        self, mock_decrypt, mock_encrypt
+    ):
+        connection = Connection(
+            user_id=1,
+            credentials_extra={
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_old_key",
+            },
+        )
+
+        with patch.object(Connection, "PUBLIC_CREDENTIALS_EXTRA_KEYS", ("aws_region",)):
+            connection.reencrypt_credentials_extra("old_key", "new_key")
+
+        self.assertEqual(
+            connection.credentials_extra,
+            {
+                "aws_region": "us-east-1",
+                "access_key_id": "encrypted_key_id_with_new_key",
+            },
+        )
+
 
     @patch("app.models.Connection.objects.filter")
     @patch("app.models.main.encrypt", side_effect=mock_encrypt)
@@ -411,6 +556,9 @@ class ConnectionModelTests(TestCase):
         mock_conn.reencrypt_field.assert_any_call("password", "old_key", "new_key")
         mock_conn.reencrypt_field.assert_any_call("ssh_password", "old_key", "new_key")
         mock_conn.reencrypt_field.assert_any_call("ssh_key", "old_key", "new_key")
+        mock_conn.reencrypt_credentials_extra.assert_called_once_with(
+            "old_key", "new_key"
+        )
         mock_conn.save.assert_called_once()
 
     @patch("app.models.Connection.objects.filter")

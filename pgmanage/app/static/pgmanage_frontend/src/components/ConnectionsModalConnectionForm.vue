@@ -102,7 +102,7 @@
 
             <div class="form-group col-3">
               <label for="connectionSSL" class="fw-bold mb-2">SSL</label>
-                <select v-if="connectionLocal.technology === 'postgresql'" id="connectionSSL" class="form-select" v-model="connectionLocal.connection_params.sslmode" :disabled="dbFormDisabled">
+                <select v-if="isPostgresFamily" id="connectionSSL" class="form-select" v-model="connectionLocal.connection_params.sslmode" :disabled="dbFormDisabled">
                     <option v-for="mode in sslModes" :key="mode" :value="mode">{{ mode }}</option>
                 </select>
                 <select v-else-if="connectionLocal.technology === 'mssql'" id="connectionSSL" class="form-select" v-model="connectionLocal.connection_params.encryption" :disabled="dbFormDisabled">
@@ -145,18 +145,38 @@
                   </span>
                 </div>
             </div>
-
             <div class="form-group col-3">
               <label for="connectionPassword" class="fw-bold mb-2">Password</label>
               <div class="position-relative">
                 <input v-model="connectionLocal.password"
                   type="password" class="form-control" id="connectionPassword" autocomplete="new-password"
                   :placeholder="this.connectionLocal.password_set ? '••••••••' : ''"
-                  :disabled="dbFormDisabled">
+                  :disabled="dbFormDisabled || iamAuthInUse">
                 <a v-if="this.connectionLocal.password_set || this.connectionLocal.password?.length > 0"
                   @click.prevent="this.connectionLocal.password_set = false; this.connectionLocal.password = ''"
                   class="btn btn-icon btn-icon-danger position-absolute input-clear-btn"><i class="fas fa-circle-xmark"></i></a>
               </div>
+            </div>
+          </div>
+
+          <div v-if="isRdsPostgresql" class="row mt-3">
+            <div class="form-group col-3">
+              <label for="awsRegion" class="fw-bold mb-2">AWS Region</label>
+              <input v-model="connectionLocal.credentials_extra.aws_region"
+                type="text" class="form-control" id="awsRegion" placeholder="ex: us-east-1"
+                :disabled="dbFormDisabled || passwordAuthInUse">
+            </div>
+            <div class="form-group col-3">
+              <label for="accessKeyId" class="fw-bold mb-2">Access Key ID</label>
+              <input v-model="connectionLocal.credentials_extra.access_key_id"
+                type="password" class="form-control" id="accessKeyId" autocomplete="new-password"
+                :disabled="dbFormDisabled || passwordAuthInUse">
+            </div>
+            <div class="form-group col-3">
+              <label for="secretAccessKey" class="fw-bold mb-2">Secret Access Key</label>
+              <input v-model="connectionLocal.credentials_extra.secret_access_key"
+                type="password" class="form-control" id="secretAccessKey" autocomplete="new-password"
+                :disabled="dbFormDisabled || passwordAuthInUse">
             </div>
           </div>
 
@@ -323,7 +343,7 @@ import { dbTechNames } from '../constants'
 
         if(['mariadb', 'mysql'].includes(this.connectionLocal.technology)) {
           return ipv4re.test(value) || ipv6re.test(value) || hostre.test(value) || pathre.test(value)
-        }else if (this.connectionLocal.technology === 'postgresql'){
+        }else if (this.isPostgresFamily){
           return ipv4re.test(value) || ipv6re.test(value) || hostre.test(value) || pathre.test(value) || !helpers.req(value)
         } else {
           return ipv4re.test(value) || ipv6re.test(value) || hostre.test(value)
@@ -354,7 +374,7 @@ import { dbTechNames } from '../constants'
 
       if(needsServer) {
         if(!this.connectionLocal.conn_string) {
-          if(['postgresql', 'mariadb', 'mysql'].includes(this.connectionLocal.technology)){
+          if(['postgresql', 'rdspostgresql', 'mariadb', 'mysql'].includes(this.connectionLocal.technology)){
             baseRules.connectionLocal.server = {
               hostOrIp: helpers.withMessage('Must be a valid hostname, IP or a UNIX socket base path', hostOrIp)
             }
@@ -442,12 +462,28 @@ import { dbTechNames } from '../constants'
           connection_params: {
             sslmode: "prefer"
           },
+          credentials_extra: {},
           color_label: 0
         }
       },
       technologies: Array,
     },
     computed: {
+      isPostgresFamily() {
+        return ['postgresql', 'rdspostgresql'].includes(this.connectionLocal.technology)
+      },
+      isRdsPostgresql() {
+        return this.connectionLocal.technology === 'rdspostgresql'
+      },
+      iamAuthInUse() {
+        if (!this.isRdsPostgresql) return false
+        const credentials = this.connectionLocal.credentials_extra ?? {}
+        return ['aws_region', 'access_key_id', 'secret_access_key']
+          .some((name) => !!credentials[name]?.length)
+      },
+      passwordAuthInUse() {
+        return this.connectionLocal.password_set || !!this.connectionLocal.password?.length
+      },
       colorLabelPickerClass() {
         return colorLabelMap[this.connectionLocal.color_label || 0].class
       },
@@ -459,6 +495,13 @@ import { dbTechNames } from '../constants'
             'service': 'ex: postgres',
             'user': 'ex: postgres',
             'conn_string': 'ex: postgresql://postgres@localhost:5432/postgres'
+          },
+          'rdspostgresql': {
+            'server': 'ex: mydb.abc123.us-east-1.rds.amazonaws.com',
+            'port': 'ex: 5432',
+            'service': 'ex: postgres',
+            'user': 'ex: postgres',
+            'conn_string': 'ex: postgresql://postgres@mydb.abc123.us-east-1.rds.amazonaws.com:5432/postgres'
           },
           'mysql': {
             'server': 'ex: host or absolute UNIX socket path',
@@ -517,7 +560,7 @@ import { dbTechNames } from '../constants'
         ['terminal', 'sqlite'].includes(this.connectionLocal.technology))
       },
       sslModes() {
-        if (this.connectionLocal.technology === 'postgresql') {
+        if (this.isPostgresFamily) {
           return this.postgresql_ssl_modes
         } else if (this.connectionLocal.technology === 'oracle') {
           return this.oracle_modes
@@ -589,8 +632,8 @@ import { dbTechNames } from '../constants'
         if(!this.v$.$invalid) {
           this.testIsRunning = true
           connectionsStore.testConnection(connection)
-          .then(() => {
-            showToast("success", "Connection successful.")
+          .then((response) => {
+            showToast("success", response.data.data)
             this.testIsRunning = false;
           })
           .catch((error) => {
@@ -610,6 +653,7 @@ import { dbTechNames } from '../constants'
       },
       handleTypeChange(event) {
         let technology = event.target.value
+        this.connectionLocal.credentials_extra = {}
         switch(technology) {
           case 'terminal':
             // erase db fields
@@ -629,6 +673,7 @@ import { dbTechNames } from '../constants'
             break
 
           case 'postgresql':
+          case 'rdspostgresql':
             this.connectionLocal.connection_params =  {sslmode: 'prefer'}
             break
 
