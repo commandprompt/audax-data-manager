@@ -18,7 +18,7 @@
               aria-label="Close"
             ></button>
           </div>
-          <div class="modal-body p-0" style="height: 60vh">
+          <div class="modal-body p-0 d-flex flex-column" style="height: 60vh">
             <div
               class="d-flex justify-content-between align-items-center border-bottom px-4 py-3"
             >
@@ -545,10 +545,9 @@ export default {
 </script>
 
 <style scoped>
-.file-table {
+.file-table,
+.files-grid {
   overflow-y: auto;
-  height: 100%;
-  max-height: calc(100% - 72px);
   position: relative;
 }
 </style>
