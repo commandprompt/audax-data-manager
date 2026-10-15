@@ -13,6 +13,11 @@ const isDebugBuild = process.env.DEBUG === 'true'
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd());
   const isEnterprise = mode === 'enterprise';
+  // vite-plugin-node-polyfills 0.27.0+ runs an inject transform in dev, also on pre-bundled
+  // deps (https://github.com/davidmyersdev/vite-plugin-node-polyfills/pull/152).
+  // This adds a huge inline sourcemap: sql-autocomplete.js is 268 MB instead of 30 MB.
+  // "dev" adds the globals with the optimizer banner only. Set all 3: one `true` keeps the transform.
+  const polyfillGlobals = command === "serve" ? "dev" : true;
   return {
     plugins: [
       inject({
@@ -24,7 +29,9 @@ export default defineConfig(({ command, mode }) => {
       vue(),
       nodePolyfills({
         globals: {
-          process: true,
+          Buffer: polyfillGlobals,
+          global: polyfillGlobals,
+          process: polyfillGlobals,
         },
       }),
     ],
