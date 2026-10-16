@@ -200,7 +200,9 @@ describe("SnippetTab", () => {
         value: { files: [fileMock], types: ["Files"] },
       });
       Object.defineProperty(window, "FileReader", {
-        value: vi.fn(() => readerMock),
+        value: vi.fn(function () {
+          return readerMock;
+        }),
       });
 
       wrapper.find(".snippet-editor").element.dispatchEvent(eventMock);
@@ -275,7 +277,9 @@ describe("SnippetTab", () => {
       });
 
       Object.defineProperty(window, "FileReader", {
-        value: vi.fn(() => readerMock),
+        value: vi.fn(function () {
+          return readerMock;
+        }),
       });
 
       wrapper.find(".snippet-editor").element.dispatchEvent(eventMock);
@@ -297,7 +301,9 @@ describe("SnippetTab", () => {
         value: { files: [fileMock], types: ["Files"] },
       });
       Object.defineProperty(window, "FileReader", {
-        value: vi.fn(() => readerMock),
+        value: vi.fn(function () {
+          return readerMock;
+        }),
       });
 
       wrapper.find(".snippet-editor").element.dispatchEvent(eventMock);

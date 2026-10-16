@@ -10,7 +10,7 @@ describe("MonitoringDashboard", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.restoreAllMocks();
+    vi.resetAllMocks();
 
     axios.post
       .mockResolvedValue({ data: { data: "1234" } })

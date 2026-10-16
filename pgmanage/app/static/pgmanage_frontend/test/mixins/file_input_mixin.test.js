@@ -1,6 +1,14 @@
 import { mount } from "@vue/test-utils";
 import mixin from "../../src/mixins/file_input_mixin";
-import { describe, test, expect, vi, beforeEach, beforeAll } from "vitest";
+import {
+  describe,
+  test,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  beforeAll,
+} from "vitest";
 import { showToast } from "@src/notification_control";
 import { maxFileSizeInKB, maxFileSizeInMB } from "../../src/constants";
 import { useTabsStore } from "../../src/stores/tabs";
@@ -28,6 +36,10 @@ describe("File Input Mixin", () => {
       mixins: [mixin],
       template: `<div></div>`,
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
   test("handles valid file type", () => {
     const fileReaderSpy = vi
@@ -89,11 +101,13 @@ describe("File Input Mixin", () => {
     const preventDefault = vi.fn();
     const stopPropagation = vi.fn();
     const error = new Error("An error occurred");
-    const FileReader = vi.fn(() => ({
-      readAsText: vi.fn(() => {
-        throw error;
-      }),
-    }));
+    const FileReader = vi.fn(function () {
+      return {
+        readAsText: vi.fn(() => {
+          throw error;
+        }),
+      };
+    });
     vi.stubGlobal("FileReader", FileReader);
 
     const fileMock = new File(["content"], "example.txt", {

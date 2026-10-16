@@ -5,9 +5,9 @@ import { handleError } from "@src/logging/utils";
 
 vi.mock("short-unique-id", () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      seq: vi.fn(() => "ABCD"),
-    })),
+    default: vi.fn().mockImplementation(function () {
+      return { seq: vi.fn(() => "ABCD") };
+    }),
   };
 });
 

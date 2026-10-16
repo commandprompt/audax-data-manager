@@ -13,10 +13,9 @@ vi.mock("@src/logging/utils", () => ({
 }));
 
 vi.mock("bootstrap", () => ({
-  Modal: vi.fn(() => ({
-    show: vi.fn(),
-    hide: vi.fn(),
-  })),
+  Modal: vi.fn(function () {
+    return { show: vi.fn(), hide: vi.fn() };
+  }),
 }));
 
 const mountComponent = (props = {}) => {
@@ -123,7 +122,7 @@ describe("ExtensionModal.vue", () => {
 
   it("handles API error in getSchemas and getAvailableExtensions", async () => {
     const errorResponse = mockErrorResponse("Response error");
-    vi.restoreAllMocks();
+    vi.resetAllMocks();
     axios.post.mockRejectedValue(errorResponse);
     const wrapper = mountComponent();
     await flushPromises();
