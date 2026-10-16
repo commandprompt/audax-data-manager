@@ -15,15 +15,15 @@
   },
   "devDependencies": {
     "@rollup/plugin-inject": "5.0.5",
-    "@vitest/coverage-v8": "3.2.6",
-    "@vitest/ui": "3.2.6",
-    "@vue/test-utils": "2.4.6",
-    "cross-env": "7.0.3",
-    "happy-dom": "20.10.2",
+    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/ui": "4.1.11",
+    "@vue/test-utils": "2.4.11",
+    "cross-env": "10.1.0",
+    "happy-dom": "20.11.15",
     "sass": "1.79.4",
     "vite": "6.4.3",
     "vite-plugin-node-polyfills": "0.28.0",
-    "vitest": "3.2.6"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "6.7.2",
@@ -41,7 +41,7 @@
     "@xterm/addon-fit": "0.10.0",
     "@xterm/xterm": "5.5.0",
     "ace-builds": "1.43.6",
-    "axios": "1.17.0",
+    "axios": "1.20.0",
     "bootstrap": "5.3.8",
     "chart.js": "4.4.2",
     "chartjs-adapter-moment": "1.0.1",
@@ -66,7 +66,7 @@
     "sql-autocomplete": "git://github.com/commandprompt/sql-autocomplete.git#f3e7cb16eae407d682313465f2a39ee3c12498d9",
     "sql-formatter": "15.7.4",
     "tabulator-tables": "6.2.5",
-    "vue": "3.5.32",
+    "vue": "3.5.43",
     "vue-simple-password-meter": "1.3.4",
     "vue-toast-notification": "3.1.2"
   },
