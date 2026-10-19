@@ -436,6 +436,8 @@ describe("ERDTab.vue", () => {
         from_col: "table1_id",
         to: "table1",
         to_col: "id",
+        from_cols: ["table1_id"],
+        to_cols: ["id"],
         label: "fk",
         cgid: "fk1",
       });
@@ -449,6 +451,8 @@ describe("ERDTab.vue", () => {
         cgid: "fk1",
         sourceTableId: "table2",
         targetTableId: "table1",
+        sourceColumns: ["table1_id"],
+        targetColumns: ["id"],
       });
     });
   });
@@ -778,6 +782,57 @@ describe("ERDTab.vue", () => {
       wrapper.vm.onNodeClick({ node: columnC });
 
       expect(clearSpy).toHaveBeenCalledTimes(1);
+    });
+
+    describe("composite foreign key", () => {
+      // table2 (a, b) references table1 (id, name); the edge connects only a -> id
+      const compositeEdge = {
+        id: "table2_a-table1_id",
+        source: "table2_a",
+        target: "table1_id",
+        data: {
+          sourceTableId: "table2",
+          targetTableId: "table1",
+          sourceColumns: ["a", "b"],
+          targetColumns: ["id", "name"],
+        },
+      };
+      const compositeNodes = [
+        { id: "table1_id", type: "column", parentNode: "table1", data: { is_highlighted: false } },
+        { id: "table1_name", type: "column", parentNode: "table1", data: { is_highlighted: false } },
+        { id: "table1_other", type: "column", parentNode: "table1", data: { is_highlighted: false } },
+        { id: "table2_a", type: "column", parentNode: "table2", data: { is_highlighted: false } },
+        { id: "table2_b", type: "column", parentNode: "table2", data: { is_highlighted: false } },
+      ];
+
+      beforeEach(() => {
+        wrapper.vm.nodes = compositeNodes.map((node) => ({ ...node, data: { ...node.data } }));
+        wrapper.vm.edges = [compositeEdge];
+      });
+
+      it("onNodeClick selects the edge when a column that is not an edge end is clicked", () => {
+        const selectSpy = vi
+          .spyOn(wrapper.vm, "selectErdEdges")
+          .mockImplementation(() => {});
+
+        wrapper.vm.onNodeClick({ node: { id: "table2_b", type: "column" } });
+        wrapper.vm.onNodeClick({ node: { id: "table1_name", type: "column" } });
+
+        expect(selectSpy).toHaveBeenNthCalledWith(1, [compositeEdge]);
+        expect(selectSpy).toHaveBeenNthCalledWith(2, [compositeEdge]);
+      });
+
+      it("selectErdEdges highlights all columns of the foreign key", () => {
+        vueFlow().internalEdges = [{ ...compositeEdge, selected: false, zIndex: 1 }];
+        vueFlow().internalNodes = wrapper.vm.nodes;
+
+        wrapper.vm.selectErdEdges([compositeEdge]);
+
+        const highlighted = vueFlow()
+          .internalNodes.filter((node) => node.data.is_highlighted)
+          .map((node) => node.id);
+        expect(highlighted).toEqual(["table1_id", "table1_name", "table2_a", "table2_b"]);
+      });
     });
 
     it("selectErdEdges marks the given edges as selected and highlights their columns only", () => {

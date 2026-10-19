@@ -261,11 +261,22 @@ def draw_graph(request, database):
                 node_id, False, schema
             ).Rows
 
+            if database.has_schema:
+                pk_cols = []
+                pk = database.QueryTablesPrimaryKeys(node_id, False, schema).Rows
+                if pk:
+                    pk_name = pk[0].get("name_raw") or pk[0]["constraint_name"]
+                    pk_cols = database.QueryTablesPrimaryKeysColumns(pk_name, node_id, False, schema).Rows
+            else:
+                # SQLite needs the table name without quotes
+                pk_cols = database.QueryTablesPrimaryKeysColumns(table["table_name"]).Rows
+            pk_column_names = [x['column_name'] for x in pk_cols]
+
             node_data['columns'] = list(({
                 'name': c['column_name'],
                 'type': short_data_type(c['data_type']),
                 'cgid': None,
-                'is_pk': False,
+                'is_pk': c.get("name_raw", c["column_name"]) in pk_column_names,
                 'is_fk': False,
                 } for c in table_columns))
 
@@ -297,6 +308,8 @@ def draw_graph(request, database):
                     "to": to_id,
                     "from_col": None,
                     "to_col": None,
+                    "from_cols": [],
+                    "to_cols": [],
                     "label": "",
                     "arrows": "to",
                     "cgid": None
@@ -310,8 +323,8 @@ def draw_graph(request, database):
             if not edge:
                 continue
 
-            edge['from_col'] = fkcol['column_name']
-            edge['to_col'] = fkcol['r_column_name']
+            edge['from_cols'].append(fkcol['column_name'])
+            edge['to_cols'].append(fkcol['r_column_name'])
             edge['cgid'] = cgid
 
             table = node_dict.get(resolve_node_id(fkcol["table_name"]))
@@ -329,6 +342,13 @@ def draw_graph(request, database):
                         col['is_pk'] = True
                         col['cgid'] = f"{fkcol['r_table_name']}-{fkcol['r_column_name']}"
 
+        # connect the edge to the topmost referenced column and to its FK column
+        for edge in edge_dict.values():
+            for col in node_dict[edge['to']]['columns']:
+                if col['name'] in edge['to_cols']:
+                    edge['to_col'] = col['name']
+                    edge['from_col'] = edge['from_cols'][edge['to_cols'].index(col['name'])]
+                    break
 
         database_name = (
             "sqlite3" if database.db_type == "sqlite" else database.service
@@ -358,7 +378,13 @@ def draw_graph(request, database):
 
             filtered_nodes = [node for id_, node in layout_nodes.items() if id_ in current_node_ids]
 
-            filtered_edges = [edge for id_, edge in layout_edges.items() if id_ in current_edge_ids]
+            filtered_edges = [
+                edge for id_, edge in layout_edges.items()
+                if id_ in current_edge_ids
+                and edge.get("data", {}).get("sourceColumns") == edge_dict[id_]["from_cols"]
+                and edge.get("data", {}).get("targetColumns") == edge_dict[id_]["to_cols"]
+            ]
+            saved_edge_ids = {edge["cgid"] for edge in filtered_edges}
 
             
             saved_node_ids = set(layout_nodes.keys())
@@ -375,12 +401,17 @@ def draw_graph(request, database):
                 table_is_new = table_id not in saved_node_ids
                 has_new_columns = bool(column_ids - saved_node_ids)
 
-                if table_is_new or has_new_columns:
+                has_changed_pks = any(
+                    layout_nodes.get(f"{table_id}_{column['name']}", {}).get("data", {}).get("is_pk") != column["is_pk"]
+                    for column in table_data.get("columns", [])
+                )
+
+                if table_is_new or has_new_columns or has_changed_pks:
                     new_nodes.append(table_data)
 
             new_edges = [
                 edge for edge in edge_dict.values()
-                if edge['cgid'] not in layout_edges.keys()
+                if edge['cgid'] not in saved_edge_ids
             ]
 
             layout_data["nodes"] = filtered_nodes

@@ -345,6 +345,8 @@ export default {
           cgid: edge.cgid,
           sourceTableId: edge.from,
           targetTableId: edge.to,
+          sourceColumns: edge.from_cols,
+          targetColumns: edge.to_cols,
         },
       }
     },
@@ -382,7 +384,7 @@ export default {
         }
         this.selectErdEdges(edgesToSelect);
       } else if (node.type === 'column') {
-        const relatedEdges = getConnectedEdges([node], this.edges);
+        const relatedEdges = this.edges.filter((edge) => this.getEdgeColumnIds(edge).includes(node.id));
   
         if (!relatedEdges.length) {
           this.clearErdSelection();
@@ -397,13 +399,7 @@ export default {
       const highlightedColumnIds = new Set();
 
       edgesToSelect.forEach((edge) => {
-        if (edge.source) {
-          highlightedColumnIds.add(edge.source);
-        }
-
-        if (edge.target) {
-          highlightedColumnIds.add(edge.target);
-        }
+        this.getEdgeColumnIds(edge).forEach((columnId) => highlightedColumnIds.add(columnId));
       });
 
       this.edges.forEach((edge) => {
@@ -432,7 +428,17 @@ export default {
           storedNode.data.is_highlighted = shouldBeHighlighted;
         }
       });
-    }, 
+    },
+    getEdgeColumnIds(edge) {
+      const { sourceTableId, targetTableId, sourceColumns = [], targetColumns = [] } = edge.data || {};
+
+      return [
+        edge.source,
+        edge.target,
+        ...sourceColumns.map((column) => `${sourceTableId}_${column}`),
+        ...targetColumns.map((column) => `${targetTableId}_${column}`),
+      ];
+    },
     getTableBounds(tableNode) {
       const width = tableNode.dimensions.width;
       const height = tableNode.dimensions.height;
