@@ -112,7 +112,7 @@ $baseWidth: 300px;
           }
         }
 
-        &.fk-column {
+        &.fk-column:not(.pk-column) {
           i {
             color: $primaryMutedColor;
           }
