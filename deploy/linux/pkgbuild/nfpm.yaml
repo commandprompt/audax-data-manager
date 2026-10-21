@@ -1,0 +1,65 @@
+name: audaxdm-app
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: database
+priority: optional
+maintainer: Command Prompt Inc. <maintainer@example.com>
+vendor: Command Prompt, Inc.
+homepage: https://www.commandprompt.com/products/audax-data-manager/
+license: MIT
+description: |-
+  Audax Data Manager desktop application.
+  It is administration tool for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, and Oracle - all from one app, so you don't need a different tool per database.
+  It's a database manager that does not get in your way.
+
+# Libraries for the NW.js runtime. The rpm uses library names, because the
+# package names are different on Fedora/RHEL and openSUSE.
+overrides:
+  deb:
+    depends:
+      - libasound2
+      - libatomic1
+      - libgbm1
+      - libgtk-3-0
+      - libnss3
+      - xdg-utils
+  rpm:
+    depends:
+      - libasound.so.2()(64bit)
+      - libatomic.so.1()(64bit)
+      - libgbm.so.1()(64bit)
+      - libgtk-3.so.0()(64bit)
+      - libnss3.so()(64bit)
+      - libXtst.so.6()(64bit)
+      - xdg-utils
+
+contents:
+  # NW.js runtime with audaxdm-server and process_executor.
+  - src: ./stage/audaxdm-app/
+    dst: /opt/audaxdm-app/
+    type: tree
+
+  - src: /opt/audaxdm-app/audaxdm-app
+    dst: /usr/bin/audaxdm-app
+    type: symlink
+
+  - src: ./audaxdm-app.desktop
+    dst: /usr/share/applications/audaxdm-app.desktop
+    file_info:
+      mode: 0644
+  - src: ./stage/audaxdm-app/audaxdm_icon.png
+    dst: /usr/share/icons/hicolor/128x128/apps/audaxdm-app.png
+    file_info:
+      mode: 0644
+
+  - src: ./stage/LICENSE
+    dst: /usr/share/doc/audaxdm-app/copyright
+    file_info:
+      mode: 0644
+
+deb:
+  compression: zstd
+rpm:
+  compression: zstd
