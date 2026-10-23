@@ -251,6 +251,9 @@ else:
 import pgmanage.settings
 import pgmanage.logging_filter
 
+# the app directory can be read-only, keep export files in the home directory
+pgmanage.settings.TEMP_DIR = os.path.join(pgmanage.custom_settings.HOME_DIR, 'temp')
+
 # Adjust pgmanage settings based on the content of the config file
 for attribute, value in pgmanage_settings.__dict__.items():
     setattr(pgmanage.settings,attribute,value)
@@ -515,6 +518,7 @@ class DjangoApplication(object):
         #cherrypy.log.error_log.propagate = False
         cherrypy.log.access_log.propagate = False
         self.mount_static(pgmanage.settings.STATIC_URL, pgmanage.settings.STATIC_ROOT)
+        self.mount_static(pgmanage.settings.STATIC_URL + 'temp', pgmanage.settings.TEMP_DIR)
 
         cherrypy.tree.graft(WSGIHandler())
 
