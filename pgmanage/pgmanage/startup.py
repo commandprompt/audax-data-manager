@@ -8,6 +8,7 @@ import app.include.OmniDatabase as OmniDatabase
 
 def clean_temp_folder(p_all_files = False):
     v_temp_folder = settings.TEMP_DIR
+    os.makedirs(v_temp_folder, exist_ok=True)
     current_time = time.time()
     for f in os.listdir(v_temp_folder):
         try:
