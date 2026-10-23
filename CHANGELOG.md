@@ -1,5 +1,20 @@
 # Audax Data Manager 1.6 Release
 
+## Release Date: Oct 27 2026
+
+## Release Notes
+
+  - New features:
+    - added support for composite primary keys in ERD module #914 
+
+  - Bugs fixed:
+    - fixed data editor row updates when table contains composite primary keys #912
+    - fixed query result data export on desktop builds #916
+    - fixed scrollable area in web file manager "list" view #872
+
+
+# Audax Data Manager 1.6 Release
+
 ## Release Date: Sep 01 2026
 
 ## Release Notes
