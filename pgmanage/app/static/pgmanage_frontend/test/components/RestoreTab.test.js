@@ -1,10 +1,10 @@
 import RestoreTab from "@src/components/RestoreTab.vue";
 import UtilityJobs from "@src/components/UtilityJobs.vue";
 import { showAlertText } from "@src/notification_control";
-import { fileManagerStore } from "@src/stores/stores_initializer";
+import { fileManagerStore, settingsStore } from "@src/stores/stores_initializer";
 import { flushPromises, mount } from "@vue/test-utils";
 import axios from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleError } from "@src/logging/utils";
 import { mockErrorResponse } from "../helpers/fixtures.js";
 
@@ -292,5 +292,71 @@ describe("RestoreTab.vue", () => {
     await flushPromises();
     expect(wrapper.vm.restoreOptions.fileName).toEqual(file["path"]);
     expect(previewButton.classes("disabled")).toBeFalsy();
+  });
+
+  describe("server version", () => {
+    const mountWithVersion = async (version) => {
+      wrapper.unmount();
+      axios.post
+        .mockResolvedValueOnce({ data: { data: [] } })
+        .mockResolvedValueOnce({ data: { version } });
+      wrapper = mount(RestoreTab, { props });
+      await flushPromises();
+    };
+
+    const pgVersionSelect = () =>
+      wrapper
+        .findAll(".form-group")
+        .find((group) => group.find("label").exists() && group.find("label").text() === "PG version:")
+        .find("select");
+
+    const revertButton = () =>
+      wrapper.find('[data-testid="revert-settings-button"]');
+
+    beforeEach(() => {
+      settingsStore.binaryPaths = { "pg-15": "/bin/pg15", "pg-16": "/bin/pg16" };
+    });
+
+    afterEach(() => {
+      settingsStore.$reset();
+    });
+
+    it("keeps Revert Settings disabled after the version loads", async () => {
+      await mountWithVersion(16);
+
+      expect(revertButton().classes("disabled")).toBeTruthy();
+    });
+
+    it("keeps Revert Settings disabled when no PG binary is set", async () => {
+      settingsStore.binaryPaths = {};
+
+      await mountWithVersion(16);
+
+      expect(revertButton().classes("disabled")).toBeTruthy();
+    });
+
+    it("selects the server version when a PG binary exists for it", async () => {
+      await mountWithVersion(15);
+
+      expect(pgVersionSelect().element.value).toBe("15");
+    });
+
+    it("selects the latest PG version when none exists for the server", async () => {
+      await mountWithVersion(13);
+
+      expect(pgVersionSelect().element.value).toBe("16");
+    });
+
+    it("sets the PG version back to the server version on Revert Settings", async () => {
+      await mountWithVersion(16);
+
+      await pgVersionSelect().setValue("15");
+      expect(revertButton().classes("disabled")).toBeFalsy();
+
+      await revertButton().trigger("click");
+
+      expect(pgVersionSelect().element.value).toBe("16");
+      expect(revertButton().classes("disabled")).toBeTruthy();
+    });
   });
 });

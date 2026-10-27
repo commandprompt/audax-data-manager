@@ -617,7 +617,9 @@ export default {
           workspace_id: this.workspaceId,
         })
         .then((response) => {
-          this.backupOptions.pg_version = this.pgKeys.includes(response.data.version) ? response.data.version : this.pgKeys.at(-1);
+          let version = this.pgKeys.includes(response.data.version) ? response.data.version : this.pgKeys.at(-1);
+          this.backupOptionsDefault.pg_version = version;
+          this.backupOptions.pg_version = version;
         })
         .catch((error) => {
           handleError(error);
