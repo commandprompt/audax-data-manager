@@ -1,6 +1,11 @@
+import json
+import os
+import tempfile
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from app.bgjob.jobs import PROCESS_NOT_FOUND, PROCESS_TERMINATED, BatchJob
+from app.models import Connection, Technology
 from app.models.main import Job
 from app.tests.utils_testing import USERS, execute_client_login
 from app.views.bgjob import delete_job, details
@@ -8,6 +13,7 @@ from app.views.bgjob import index as jobs_list
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import resolve, reverse
+from django.utils.timezone import make_aware
 from pickle import dumps
 
 User = get_user_model()
@@ -40,6 +46,41 @@ class BackgroundJobsTests(TestCase):
         response = self.client.get(reverse("job_list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json().get("data"), [])
+
+    def test_list_puts_job_without_start_time_first(self):
+        admin = User.objects.get(username="admin")
+        connection = Connection.objects.create(
+            user=admin, technology=Technology.objects.filter(name="postgresql").first()
+        )
+        description = dumps("test description").hex()
+        old_start = datetime(2026, 1, 1, 10, 0, 0)
+        Job.objects.create(
+            id=10,
+            user=admin,
+            description=description,
+            connection=connection,
+            start_time=make_aware(old_start),
+            end_time=make_aware(old_start + timedelta(seconds=1)),
+        )
+
+        with tempfile.TemporaryDirectory() as log_dir:
+            new_start = old_start + timedelta(hours=1)
+            with open(os.path.join(log_dir, "status"), "w") as status_file:
+                json.dump(
+                    {"start_time": new_start.strftime("%Y%m%d%H%M%S%f"), "pid": 1},
+                    status_file,
+                )
+            Job.objects.create(
+                id=11,
+                user=admin,
+                description=description,
+                connection=connection,
+                logdir=log_dir,
+            )
+
+            jobs = BatchJob.list(admin)
+
+        self.assertEqual([job["id"] for job in jobs], ["11", "10"])
 
     def test_get_background_jobs_list_view_for_logged_out_user(self):
         self.client.logout()

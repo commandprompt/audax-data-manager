@@ -15,6 +15,7 @@ from subprocess import Popen
 import psutil
 from app.models.main import Connection, Job
 from app.views.polling import get_duration
+from django.db.models import F
 from django.utils.timezone import make_aware
 from pgmanage.settings import HOME_DIR
 
@@ -392,7 +393,7 @@ class BatchJob:
 
     @staticmethod
     def list(user):
-        jobs = Job.objects.filter(user=user).select_related("connection").order_by('-start_time')
+        jobs = Job.objects.filter(user=user).select_related("connection").order_by(F("start_time").desc(nulls_first=True))
 
         res = []
         for job in jobs:
