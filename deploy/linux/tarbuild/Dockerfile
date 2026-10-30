@@ -29,6 +29,14 @@ RUN apt-get update && apt-get install -y build-essential
 
 RUN pip3 install setuptools-rust
 
+ARG NFPM_VERSION="2.47.0"
+ARG NFPM_SHA256="0660ca602b2d2d2ae4781a06c692b3eeb9d437ffea05b831d76e41f4a3188783"
+RUN wget -q -O /tmp/nfpm.tar.gz \
+        "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" && \
+    echo "${NFPM_SHA256}  /tmp/nfpm.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin nfpm && \
+    rm /tmp/nfpm.tar.gz
+
 FROM ubuntu:20.04
 
 ENV TZ=UTC
