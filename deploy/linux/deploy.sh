@@ -4,5 +4,5 @@ docker run -e VERSION=${1} -e BRANCH=${2-dev} -e DEBUG=${3-false} -v $PWD:/deplo
 
 sudo chown $USER:$USER *.tar.gz
 sudo chown $USER:$USER *.AppImage
-# sudo chown $USER:$USER *.deb
-# sudo chown $USER:$USER *.rpm
+sudo chown $USER:$USER *.deb
+sudo chown $USER:$USER *.rpm

@@ -105,3 +105,13 @@ cd $HOME
 # tar -czvf pgmanage-app_$VERSION-linux-x64.tar.gz pgmanage-app_$VERSION/
 # mv pgmanage-app_$VERSION-linux-x64.tar.gz /tmp/
 mv audaxdm-$VERSION.AppImage /deploy
+
+# Building deb and rpm packages
+cd $HOME/pgmanage/deploy/linux/pkgbuild
+mkdir stage
+mv $HOME/audaxdm-app_$VERSION stage/audaxdm-app
+# the nwjs archive gives mode 0700 to this directory
+chmod 755 stage/audaxdm-app
+cp $HOME/pgmanage/LICENSE stage/
+nfpm pkg -p deb -t /deploy/
+nfpm pkg -p rpm -t /deploy/

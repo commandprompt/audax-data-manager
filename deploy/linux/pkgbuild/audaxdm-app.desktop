@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Audax Data Manager
+Exec=audaxdm-app
+Terminal=false
+Type=Application
+Icon=audaxdm-app
+StartupWMClass=audaxdm
+Comment=Audax Data Manager - a modern SQL Editor and Database Client for Developers and Administrators
+Categories=Development;
