@@ -191,11 +191,6 @@ modules:
       - type: archive
         url: https://dl.nwjs.io/v0.114.0/nwjs-v0.114.0-linux-x64.tar.gz
         sha256: 31e7e6ebde8f7c2b2eb837ccaa7a5b8a39ca0ccb7de373ec3c5cdc191d8b3c84
-        x-checker-data:
-          type: json
-          url: https://nwjs.io/versions.json
-          version-query: .stable | sub("^v"; "")
-          url-query: '"https://dl.nwjs.io/v" + $version + "/nwjs-v" + $version + "-linux-x64.tar.gz"'
 
   - name: audaxdm
     buildsystem: simple
@@ -204,9 +199,7 @@ modules:
       env:
         AUDAXDM_VERSION: 1.6.1
         # Offline npm cache from npm-sources.json.
-        XDG_CACHE_HOME: /run/build/audaxdm/flatpak-node/cache
         npm_config_cache: /run/build/audaxdm/flatpak-node/npm-cache
-        npm_config_nodedir: /usr/lib/sdk/node22
         npm_config_offline: 'true'
         # The git dependencies already contain their built files. Skip npm's git
         # dependency preparation, because it installs their dev dependencies.
@@ -241,6 +234,7 @@ modules:
         sed -i "s/^PGMANAGE_VERSION = 'Dev'$/PGMANAGE_VERSION = 'Audax Data Manager ${AUDAXDM_VERSION}'/" "$settings"
         sed -i "s/^PGMANAGE_SHORT_VERSION = 'dev'$/PGMANAGE_SHORT_VERSION = '${AUDAXDM_VERSION}'/" "$settings"
         grep -q "^PGMANAGE_SHORT_VERSION = '${AUDAXDM_VERSION}'$" "$settings"
+        grep -q "^PGMANAGE_VERSION = 'Audax Data Manager ${AUDAXDM_VERSION}'$" "$settings"
 
         # NW.js shell files; the AppImage desktop file is not used.
         install -Dm644 -t ${FLATPAK_DEST}/audaxdm deploy/app/index.html deploy/app/package.json deploy/app/audaxdm_icon.png
