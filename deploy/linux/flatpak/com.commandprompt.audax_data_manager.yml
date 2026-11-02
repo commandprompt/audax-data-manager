@@ -21,6 +21,7 @@ cleanup:
   - /lib/postgresql/*/include
   - /lib/postgresql/*/lib/pkgconfig
   - /lib/postgresql/*/bin/pg_config
+  - /lib/postgresql/*/share
   - '*.a'
 
 modules:
@@ -32,9 +33,7 @@ modules:
         PG_CONFIGURE_OPTS: ''
     build-commands: &postgresql-build-commands
       - ./configure --prefix=/app/lib/postgresql/${PG_MAJOR} --with-openssl ${PG_CONFIGURE_OPTS}
-      - make -C src/include -j${FLATPAK_BUILDER_N_JOBS} install
       - make -C src/interfaces/libpq -j${FLATPAK_BUILDER_N_JOBS} install
-      - make -C src/bin/pg_config -j${FLATPAK_BUILDER_N_JOBS} install
       - make -C src/bin/pg_dump -j${FLATPAK_BUILDER_N_JOBS} install
       - make -C src/bin/psql -j${FLATPAK_BUILDER_N_JOBS} install
       - install -Dm644 COPYRIGHT ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/postgresql-${PG_MAJOR}/COPYRIGHT
@@ -53,7 +52,7 @@ modules:
     build-options:
       env:
         PG_MAJOR: '14'
-        PG_CONFIGURE_OPTS: --with-lz4
+        PG_CONFIGURE_OPTS: ''
     build-commands: *postgresql-build-commands
     sources:
       - type: archive
@@ -70,7 +69,7 @@ modules:
     build-options:
       env:
         PG_MAJOR: '15'
-        PG_CONFIGURE_OPTS: --with-lz4 --with-zstd
+        PG_CONFIGURE_OPTS: ''
     build-commands: *postgresql-build-commands
     sources:
       - type: archive
@@ -126,6 +125,8 @@ modules:
         PG_CONFIGURE_OPTS: --with-lz4 --with-zstd
     build-commands: *postgresql-build-commands
     post-install:
+      - make -C src/include -j${FLATPAK_BUILDER_N_JOBS} install
+      - make -C src/bin/pg_config -j${FLATPAK_BUILDER_N_JOBS} install
       - ln -sfn postgresql/18/lib/libpq.so.5 ${FLATPAK_DEST}/lib/libpq.so.5
       - install -d ${FLATPAK_DEST}/bin
       - for tool in psql pg_dump pg_dumpall pg_restore; do ln -sfn ../lib/postgresql/18/bin/${tool}

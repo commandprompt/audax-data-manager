@@ -6,7 +6,7 @@ import sys
 import platform
 import random
 import string
-import importlib
+import importlib.util
 
 #Parameters
 import optparse
