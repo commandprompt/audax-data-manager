@@ -116,7 +116,11 @@ if options.homedir!='':
         pgmanage.custom_settings.HOME_DIR = options.homedir
 else:
     if pgmanage.custom_settings.DESKTOP_MODE:
-        pgmanage.custom_settings.HOME_DIR = os.path.join(os.path.expanduser('~'), '.audaxdm', 'audaxdm-app')
+        if os.environ.get('FLATPAK_ID'):
+            # Flatpak: keep user data in the sandbox data folder
+            pgmanage.custom_settings.HOME_DIR = os.path.join(os.environ['XDG_DATA_HOME'], 'audaxdm-app')
+        else:
+            pgmanage.custom_settings.HOME_DIR = os.path.join(os.path.expanduser('~'), '.audaxdm', 'audaxdm-app')
         LEGACY_HOME_DIR = os.path.join(os.path.expanduser('~'), '.pgmanage', 'pgmanage-app')
     else:
         pgmanage.custom_settings.HOME_DIR = os.path.join(os.path.expanduser('~'), '.audaxdm', 'audaxdm-server')
