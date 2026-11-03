@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.commandprompt.audax_data_manager</id>
+
+  <name>Audax Data Manager</name>
+  <summary>Query and manage SQL databases</summary>
+
+  <developer id="com.commandprompt">
+    <name>Command Prompt, Inc.</name>
+  </developer>
+
+  <recommends>
+    <display_length compare="ge">768</display_length>
+  </recommends>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Audax Data Manager is a free, open-source database client and administration tool
+      for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite and Oracle. One app for all of
+      these databases, with no tracking and no telemetry.
+    </p>
+    <ul>
+      <li>Connect to many databases at the same time in tabbed workspaces</li>
+      <li>SQL editor with syntax highlighting and schema-aware autocomplete</li>
+      <li>Visual query plans and a spreadsheet-like results grid</li>
+      <li>Visual editors for data and table structure</li>
+      <li>Entity relationship diagrams</li>
+      <li>Live monitoring and PostgreSQL configuration management</li>
+      <li>PostgreSQL backup and restore that run in the background</li>
+      <li>Credentials encrypted with a master password, SSH tunnels and a built-in SSH terminal</li>
+      <li>Dark and light themes</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.commandprompt.audax_data_manager.desktop</launchable>
+
+  <url type="homepage">https://www.commandprompt.com/products/audax-data-manager/</url>
+  <url type="bugtracker">https://github.com/commandprompt/Audax-Data-Manager/issues</url>
+  <url type="vcs-browser">https://github.com/commandprompt/Audax-Data-Manager</url>
+  <url type="help">https://audax.readthedocs.io/</url>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#f0b577</color>
+    <color type="primary" scheme_preference="dark">#173f5f</color>
+  </branding>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/pg-backup.png</image>
+      <caption>PG Backup and Restore</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/database-erd.png</image>
+      <caption>Entity relationship diagram</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/dashboard.png</image>
+      <caption>Live database monitoring</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/query-explain.png</image>
+      <caption>Visual Query Plans</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/pg-config-management.png</image>
+      <caption>PG configuration management</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/schema-editor.png</image>
+      <caption>Schema Editor</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/commandprompt/audax-data-manager/f3aec543ff210190e5b56a71c7014dfd0a56920f/artwork/screenshots/query-err-autocomplete.png</image>
+      <caption>Query autocompletion and error hints</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="1.6.1" date="2026-10-26">
+      <url type="details">https://github.com/commandprompt/Audax-Data-Manager/releases/tag/1.6.1-release</url>
+    </release>
+    <release version="1.6" date="2026-09-25">
+      <url type="details">https://github.com/commandprompt/Audax-Data-Manager/releases/tag/1.6-release</url>
+    </release>
+    <release version="1.5" date="2026-07-06">
+      <url type="details">https://github.com/commandprompt/Audax-Data-Manager/releases/tag/1.5-release</url>
+    </release>
+  </releases>
+</component>
