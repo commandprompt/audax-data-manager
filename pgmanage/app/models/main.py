@@ -52,6 +52,7 @@ class UserDetails(models.Model):
                         f"/usr/pgsql-{v}/bin",              # RHEL/CentOS
                         f"/usr/lib/postgresql-{v}/bin",     # Gentoo
                         f"/usr/lib/postgresql{v}/bin",      # openSUSE/SLES
+                        f"/app/lib/postgresql/{v}/bin",     # Flatpak
                     ]
 
                     for p in candidates:
