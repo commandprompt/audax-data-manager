@@ -43,3 +43,17 @@ export NOTARY_PROFILE=audaxdm-notary
 A self-signed identity is enough to test the signing flow, but Gatekeeper rejects it and notarization needs a real Developer ID.
 
 This will create the python virtual environment and install all the required python modules mentioned in the requirements file using pip, build the runtime code and finally create the app bundle and the DMG in `./release_$pgmanage_version` directory.
+
+### Homebrew cask
+The cask lives in `Casks/audaxdm.rb` at the repository root, because Homebrew only looks for casks in a top-level `Casks/` directory. Everything else related to the macOS build stays in this directory.
+
+Install:
+```
+brew tap commandprompt/audaxdm https://github.com/commandprompt/audax-data-manager
+brew install --cask audaxdm
+```
+
+For each release:
+- Upload both `.dmg` files to the `<version>-release` GitHub release.
+- In `Casks/audaxdm.rb`, update `version` and both `sha256` values (`shasum -a 256 <file>`).
+- While the app is unsigned, first launch needs `xattr -dr com.apple.quarantine "/Applications/Audax Data Manager.app"`.
