@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Django app served from the local sidecar server",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://localhost:*/*", "http://127.0.0.1:*/*"]
+  },
+  "permissions": ["allow-confirm-close", "allow-read-clipboard", "allow-pick-path", "allow-open-external-url", "allow-save-export", "allow-save-file", "allow-read-dropped-file", "allow-app-ready"]
+}

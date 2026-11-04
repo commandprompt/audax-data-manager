@@ -308,6 +308,7 @@ import { showToast } from "../notification_control";
 import { fileManagerStore, settingsStore } from "../stores/stores_initializer";
 import { Modal } from "bootstrap";
 import { handleError } from "../logging/utils";
+import { pickNativePath } from "../utils/native_dialog";
 import escape from "lodash/escape";
 
 export default {
@@ -435,16 +436,13 @@ export default {
       }
     },
     showNative(onChange, dialog_type) {
-      let inputEl = document.createElement("input");
-      inputEl.setAttribute("type", "file");
-      inputEl.onchange = onChange;
-      if (dialog_type === "select_folder") {
-        inputEl.setAttribute("nwdirectory", "");
-      } else if (dialog_type === "create_file") {
-        inputEl.setAttribute("nwsaveas", "");
-      }
-
-      inputEl.dispatchEvent(new MouseEvent("click"));
+      pickNativePath(dialog_type, this.dialogTitle)
+        .then((file) => {
+          if (file) onChange({ target: { files: [file] } });
+        })
+        .catch((error) => {
+          handleError(error);
+        });
     },
     onDownload() {
       const link = document.createElement("a");

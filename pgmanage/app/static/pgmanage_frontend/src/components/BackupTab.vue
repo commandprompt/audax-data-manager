@@ -569,7 +569,7 @@ export default {
       const [file] = e.target.files
       this.backupOptions.fileName = file?.path
 
-      if (e.target.hasAttribute('nwdirectory')) return;
+      if (this.isDirectoryFormat) return;
 
       switch (file?.type) {
         case 'application/sql':

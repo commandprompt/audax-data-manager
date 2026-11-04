@@ -143,10 +143,10 @@
                           autocomplete="off"
                         />
 
-                        <label v-if="desktopMode" class="btn btn-outline-secondary mb-0" type="button">
+                        <button v-if="desktopMode" class="btn btn-outline-secondary mb-0" type="button"
+                          @click="selectPostgresqlPathForVersion(k)">
                           Select
-                          <input type="file" @change="setPostgresqlPathForVersion($event, k)" nwdirectory hidden>
-                        </label>
+                        </button>
                       </div>
 
                       <a data-testid="validate-binary-path-button"
@@ -167,10 +167,10 @@
                     <div class="input-group">
                       <input id="pigz_path" type="text" class="form-control" v-model="pigzPath"
                         :placeholder="`${action} binary path..`" autocomplete="off">
-                      <label v-if="desktopMode" class="btn btn-outline-secondary mb-0" type="button">
+                      <button v-if="desktopMode" class="btn btn-outline-secondary mb-0" type="button"
+                        @click="selectPigzPath">
                         Select
-                        <input type="file" @change="setPigzPath" nwdirectory hidden>
-                      </label>
+                      </button>
                     </div>
                     <a class="btn btn-outline-primary ms-2" @click="validateBinaryPath(pigzPath, 'pigz')" title="Validate">
                       Validate
@@ -224,6 +224,7 @@ import { required, maxLength } from '@vuelidate/validators'
 import { Modal } from 'bootstrap'
 import PasswordMeter from 'vue-simple-password-meter';
 import { handleError } from '@src/logging/utils';
+import { pickNativePath } from '../utils/native_dialog'
 import SettingsModalShortcutsTab from './SettingsModalShortcutsTab.vue'
 
 const light_terminal_theme = {
@@ -506,9 +507,12 @@ export default {
           handleError(error);
         })
     },
-    setPigzPath(e) {
-      const [file] = e.target.files
-      this.pigzPath = file?.path
+    selectPigzPath() {
+      pickNativePath('select_folder')
+        .then((file) => {
+          if (file) this.pigzPath = file.path
+        })
+        .catch((error) => handleError(error))
     },
     resetUnsavedSettings() {
       this.hidden = true
@@ -522,10 +526,12 @@ export default {
         this.fallbackTheme = null
       }
     },
-    setPostgresqlPathForVersion(e, versionKey) {
-      const [file] = e.target.files;
-      const path = file?.path || "";
-      settingsStore.setBinaryPathForVersion(versionKey, path);
+    selectPostgresqlPathForVersion(versionKey) {
+      pickNativePath('select_folder')
+        .then((file) => {
+          if (file) settingsStore.setBinaryPathForVersion(versionKey, file.path);
+        })
+        .catch((error) => handleError(error));
     },
     setBinaryPathForVersion(versionKey, value) {
       settingsStore.setBinaryPathForVersion(versionKey, value);

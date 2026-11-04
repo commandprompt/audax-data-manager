@@ -1,0 +1,18 @@
+[package]
+name = "audaxdm"
+version = "1.6.2"
+edition = "2021"
+description = "Audax Data Manager desktop shell"
+
+[build-dependencies]
+tauri-build = "=2.6.3"
+
+[dependencies]
+tauri = "=2.11.6"
+tauri-plugin-window-state = "=2.4.1"
+tauri-plugin-clipboard-manager = "=2.3.3"
+tauri-plugin-dialog = "=2.7.3"
+tauri-plugin-opener = "=2.5.5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.189"
