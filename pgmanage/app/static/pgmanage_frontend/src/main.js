@@ -32,6 +32,7 @@ import workerJsonUrl from  'ace-builds/src-noconflict/worker-json.js?url';
 import workerXmlUrl from  'ace-builds/src-noconflict/worker-xml.js?url';
 import axios from 'axios'
 import { getCookie } from './ajax_control.js';
+import { showToast } from './notification_control.js';
 import App from './App.vue'
 import { createApp } from 'vue';
 import ToastPlugin from 'vue-toast-notification';
@@ -108,6 +109,11 @@ $(window).on('beforeunload', (event) => {
 window.addEventListener("message", (event) => {
   const msg = event.data;
 
+  if (msg?.type === "pgmanage:host-error") {
+    showToast("error", msg.message);
+    return;
+  }
+
   if (msg?.type === "pgmanage:request-close") {
     const dirty = tabsStore.hasAnyUnsavedChanges;
     if (!dirty) {
@@ -124,6 +130,13 @@ window.addEventListener("message", (event) => {
   }
 });
 
+// Tells the desktop shell that the UI is mounted, so it can swap the splash for this window.
+// Only in desktop mode: the web variant has no host listening.
+const notifyAppReady = () => {
+  if (!settingsStore.desktopMode) return;
+  setTimeout(() => window.postMessage({ type: "pgmanage:app-ready" }, "*"), 0);
+};
+
 settingsStore.getSettings().then(() => {
   const app = createApp(App);
   setupLogger(app, stores);
@@ -136,6 +149,7 @@ settingsStore.getSettings().then(() => {
       });
       app.use(pinia);
       app.mount("#app");
+      notifyAppReady();
     });
   } else {
     app.use(ToastPlugin, {
@@ -143,5 +157,6 @@ settingsStore.getSettings().then(() => {
     });
     app.use(pinia);
     app.mount("#app");
+    notifyAppReady();
   }
 });
