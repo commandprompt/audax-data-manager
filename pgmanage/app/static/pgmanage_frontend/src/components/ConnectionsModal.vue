@@ -195,10 +195,10 @@ export default {
     saveConnection(connection) {
       axios.post('/save_connection/', connection)
       .then((response) => {
+        const savedId = response.data.data.id
         let unsubscribe = connectionsStore.$subscribe((mutation, state) => {
           if (mutation.type === 'patch object' && mutation.payload.connections) {
-            this.selectedConnection = state.connections.find((conn) => 
-            conn.id === connection.id || conn.alias === connection.alias) ?? {}
+            this.selectedConnection = state.connections.find((conn) => conn.id === savedId) ?? {}
             unsubscribe()
           }
         });

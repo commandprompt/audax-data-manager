@@ -464,6 +464,7 @@ def save_connection(request, session: Session):
         return JsonResponse(response_data, status=400)
 
     request.session['pgmanage_session'] = session
+    response_data['data'] = {'id': conn.id}
 
     return JsonResponse(response_data)
 

@@ -366,6 +366,15 @@ class ConnectionsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Connection.objects.filter(alias="Test Connection").exists())
 
+    def test_save_connection_view_returns_id_of_new_connection(self):
+        self.test_connection_data["id"] = None
+        response = self.client.post(
+            reverse("save_connection"), self.test_connection_data
+        )
+
+        new_conn = Connection.objects.get(alias="Test Connection")
+        self.assertEqual(response.json()["data"], {"id": new_conn.id})
+
     def test_save_connection_view_unauthorized(self):
         self.client.logout()
         response = self.client.post(reverse("save_connection"))
