@@ -1190,4 +1190,26 @@ describe("ERDTab.vue", () => {
       expect(rafSpy).toHaveBeenCalledTimes(3);
     });
   });
+
+  describe("grid snapping", () => {
+    it("keeps snapping off by default so column rows are never snapped", () => {
+      expect(ERDTab.data.call({}).snapToGrid).toBe(false);
+    });
+
+    it("snaps only while a table is being dragged", () => {
+      const ctx = {
+        snapToGrid: false,
+        rerouteEdgesByTableDistance: vi.fn(),
+        saveGraphState: vi.fn(),
+      };
+
+      ERDTab.methods.onNodeDragStart.call(ctx);
+      expect(ctx.snapToGrid).toBe(true);
+
+      ERDTab.methods.onNodeDragStop.call(ctx);
+      expect(ctx.snapToGrid).toBe(false);
+      expect(ctx.rerouteEdgesByTableDistance).toHaveBeenCalledTimes(1);
+      expect(ctx.saveGraphState).toHaveBeenCalledTimes(1);
+    });
+  });
 });

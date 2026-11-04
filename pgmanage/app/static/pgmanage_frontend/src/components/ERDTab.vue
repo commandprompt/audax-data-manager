@@ -46,11 +46,12 @@
         :node-types="nodeTypes"
         :nodes="nodes"
         :edges="edges"
-        :snap-to-grid="true"
+        :snap-to-grid="snapToGrid"
         :snap-grid="[10, 10]"
         min-zoom="0.1"
         @nodes-initialized="onNodesInitialized"
         @viewport-change-end="saveGraphState"
+        @node-drag-start="onNodeDragStart"
         @node-drag-stop="onNodeDragStop"
         @node-drag="scheduleRerouteEdges"
         @edge-click="onEdgeClick"
@@ -111,6 +112,11 @@ export default {
       jsonLayout: false,
       rerouteFrame: null,
       capturingScreenshot: false,
+      // vue-flow's own snapping is only on while a table is dragged. While it is on it snaps every
+      // node it mounts, including the column rows inside a table, whose 24px pitch does not fit the
+      // 10px grid (uneven row spacing). The initial layout snaps the tables itself, see
+      // getLayoutedNodes in layout.js.
+      snapToGrid: false,
       // edge colours: vue-flow's default stroke and the selected stroke in erd-card.scss
       markerVariants: [
         { suffix: "", stroke: "#b1b1b7" },
@@ -534,7 +540,11 @@ export default {
         }
       })
     },
+    onNodeDragStart() {
+      this.snapToGrid = true;
+    },
     onNodeDragStop() {
+      this.snapToGrid = false;
       this.rerouteEdgesByTableDistance();
       this.saveGraphState();
     },
