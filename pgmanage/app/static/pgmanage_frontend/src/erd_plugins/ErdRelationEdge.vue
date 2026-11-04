@@ -1,5 +1,8 @@
 <template>
+  <!-- The key recreates the path when the selection changes: WebKit does not repaint the
+       markers when only marker-start/marker-end are switched on an existing path. -->
   <BaseEdge
+    :key="selected ? 'selected' : 'default'"
     :id="id"
     :path="edgePath"
     :marker-start="scopedMarkerStart"
@@ -34,6 +37,7 @@ export default {
     markerEnd: { type: [String, Object], required: false },
     markerStart: { type: [String, Object], required: false },
     tabId: { type: String, required: false },
+    selected: { type: Boolean, default: false },
     sourceHandleId: {
       type: String,
       default: "",
@@ -105,7 +109,8 @@ export default {
         return marker;
       }
 
-      return marker.replace(/#([^')]+)/, `#$1-${this.tabId}`);
+      const variant = this.selected ? "-selected" : "";
+      return marker.replace(/#([^')]+)/, `#$1${variant}-${this.tabId}`);
     },
     getHandleSide(handleId) {
       if (handleId?.endsWith("left")) {
