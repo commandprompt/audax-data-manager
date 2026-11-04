@@ -129,6 +129,20 @@ mv dist/audaxdm-server/* audaxdm-server/
 
 if [ "$ARCH" = "arm64" ]
 then
+    # python.org Python and the psycopg2-binary wheel ship different OpenSSL builds with the same file names,
+    # and PyInstaller keeps one file per name, so libssl and libcrypto can end up from different versions
+    # and fail to load. Use the (newer) pair from the wheel for both.
+    OPENSSL_DIR=$VIRTUAL_ENV/lib/python3.11/site-packages/psycopg2/.dylibs
+    for lib in libssl.3.dylib libcrypto.3.dylib
+    do
+        if [ "$(lipo -archs $OPENSSL_DIR/$lib)" = "arm64" ]
+        then
+            cp $OPENSSL_DIR/$lib audaxdm-server/$lib
+        else
+            lipo -thin arm64 $OPENSSL_DIR/$lib -output audaxdm-server/$lib
+        fi
+    done
+
     echo 'Checking that all binaries are arm64'
     find audaxdm-server -type f | while read -r f
     do

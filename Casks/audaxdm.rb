@@ -3,7 +3,7 @@ cask "audaxdm" do
 
   arch arm: "arm64", intel: "x64"
 
-  sha256 arm:   "57375ffb67801f0b1271a31cdb064e87a72b51f23294079725577854ba43a806",
+  sha256 arm:   "1da4e6b4d668487a8333fec8ee65257991b57231bcd4e67202abc5f87b732ab3",
          intel: "0798e6909851c62ea5297056730a237ced0c1795b75150ca538bc07360670dd4"
 
   url "https://github.com/commandprompt/audaxdm-tap/releases/download/test/audaxdm-#{version}_mac_#{arch}.dmg"
