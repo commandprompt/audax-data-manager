@@ -76,7 +76,7 @@ Great Bug Reports tend to have:
 [CHANGELOG.md](CHANGELOG.md)
 
 # 🍰 Credits
-Audax Data Manager is being developed by [CommandPrompt Inc](https://www.commandprompt.com/).  
+Audax Data Manager is being developed by [Command Prompt, Inc.](https://www.commandprompt.com/).  
 We proudly leverage all of the great work done by the original (now dormant) project [OmniDB](https://github.com/OmniDB/OmniDB).  
 
 Built with [Django](https://www.djangoproject.com/) on the backend and [Vue.js](https://vuejs.org/) on the frontend.  

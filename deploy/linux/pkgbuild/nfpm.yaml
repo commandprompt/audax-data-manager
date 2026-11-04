@@ -5,7 +5,7 @@ version: ${VERSION}
 version_schema: none
 section: database
 priority: optional
-maintainer: Command Prompt Inc. <maintainer@example.com>
+maintainer: Command Prompt, Inc. <support@commandprompt.com>
 vendor: Command Prompt, Inc.
 homepage: https://www.commandprompt.com/products/audax-data-manager/
 license: MIT
