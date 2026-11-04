@@ -7,9 +7,7 @@ $baseWidth: 300px;
     min-height: 70px;
     text-align: left;
     justify-content: center;
-    -moz-box-shadow: $primaryBlue 0px 1px 2px, $primaryBlue 0px 0px 0px 2px;
-    -webkit-box-shadow: $primaryBlue 0px 1px 2px, $primaryBlue 0px 0px 0px 2px;
-    box-shadow: $primaryBlue 0px 1px 2px, $primaryBlue 0px 0px 0px 2px;
+    outline: 2px solid $primaryBlue;
     border-radius: $borderRadius;
     box-sizing: border-box;
     overflow: hidden;
@@ -133,3 +131,10 @@ $baseWidth: 300px;
  .vue-flow__edge.selected .vue-flow__edge-path  {
   stroke: #F76707;
  }
+
+// vue-flow's default theme removes the outline of a focused (clicked or selected) node, which
+// would remove the card outline. The extra .vue-flow__node class makes this win on specificity.
+.vue-flow__node.vue-flow__node-table.selectable:focus,
+.vue-flow__node.vue-flow__node-table.selectable:focus-visible {
+    outline: 2px solid $primaryBlue;
+}
