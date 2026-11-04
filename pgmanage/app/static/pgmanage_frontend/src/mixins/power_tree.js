@@ -77,6 +77,7 @@ export default {
     emitter.all.delete(`refreshNode_${this.workspaceId}`);
     emitter.all.delete(`removeNode_${this.workspaceId}`);
     emitter.all.delete(`refreshTreeRecursive_${this.workspaceId}`)
+    emitter.all.delete(`focusTree_${this.workspaceId}`);
   },
   methods: {
     onClickHandler(node, e) {
