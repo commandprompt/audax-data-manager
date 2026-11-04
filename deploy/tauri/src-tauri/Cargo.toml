@@ -4,6 +4,14 @@ version = "1.6.2"
 edition = "2021"
 description = "Audax Data Manager desktop shell"
 
+[features]
+# Set by tauri-cli for release builds: without it Tauri behaves as a development build.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+strip = true
+lto = true
+
 [build-dependencies]
 tauri-build = "=2.6.3"
 

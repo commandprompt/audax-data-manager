@@ -240,3 +240,33 @@ fn directories_are_refused_even_when_registered() {
     assert!(read_dropped(&shared, dir.to_str().unwrap()).is_err());
     std::fs::remove_dir(&dir).unwrap();
 }
+
+// --- AppImage environment ---
+
+#[test]
+fn without_appdir_keeps_values_that_do_not_point_into_the_mount() {
+    assert_eq!(without_appdir("/usr/bin:/bin", "/tmp/.mount_x").as_deref(), Some("/usr/bin:/bin"));
+    assert_eq!(without_appdir("", "/tmp/.mount_x").as_deref(), Some(""));
+}
+
+#[test]
+fn without_appdir_drops_only_the_mount_parts_of_a_list() {
+    let value = "/tmp/.mount_x/usr/bin/:/tmp/.mount_x//usr/sbin:/home/u/bin:/usr/bin";
+    assert_eq!(
+        without_appdir(value, "/tmp/.mount_x").as_deref(),
+        Some("/home/u/bin:/usr/bin")
+    );
+}
+
+#[test]
+fn without_appdir_removes_variables_that_only_point_into_the_mount() {
+    assert_eq!(without_appdir("/tmp/.mount_x", "/tmp/.mount_x"), None);
+    assert_eq!(without_appdir("/tmp/.mount_x/usr/lib:/tmp/.mount_x/usr/lib64", "/tmp/.mount_x"), None);
+}
+
+#[test]
+fn without_appdir_handles_paths_with_spaces() {
+    let value = "/tmp/.mount_x/usr/lib/Audax Data Manager/audaxdm-server:/usr/lib";
+    assert_eq!(without_appdir(value, "/tmp/.mount_x").as_deref(), Some("/usr/lib"));
+}
+

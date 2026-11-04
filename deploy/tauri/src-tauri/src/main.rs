@@ -97,13 +97,22 @@ fn splash_log(state: State<'_, Shared>) -> Vec<LogLine> {
 }
 
 /// Path of the backend executable: `AUDAXDM_SERVER` if set (development), otherwise the
-/// `audaxdm-server` folder bundled with the app.
+/// `audaxdm-server` folder next to the app executable (deb/rpm install), or else in the bundle
+/// resources (AppImage).
 fn server_path(app: &AppHandle) -> PathBuf {
     if let Ok(path) = std::env::var("AUDAXDM_SERVER") {
         return PathBuf::from(path);
     }
     let exe = if cfg!(windows) { "audaxdm-server.exe" } else { "audaxdm-server" };
-    app.path().resource_dir().unwrap_or_default().join("audaxdm-server").join(exe)
+    let server = Path::new("audaxdm-server").join(exe);
+
+    let beside_app = std::env::current_exe()
+        .ok()
+        .and_then(|app_exe| app_exe.parent().map(|dir| dir.join(&server)));
+    match beside_app {
+        Some(path) if path.exists() => path,
+        _ => app.path().resource_dir().unwrap_or_default().join(server),
+    }
 }
 
 /// Records one line of backend output and forwards it to the splash screen. The backend prints
@@ -144,6 +153,7 @@ fn spawn_server(app: &AppHandle) {
     let path = server_path(app);
     let mut cmd = Command::new(&path);
     cmd.arg("-A").stdout(Stdio::piped()).stderr(Stdio::piped());
+    clean_appimage_env(&mut cmd);
 
     if cfg!(target_os = "macos") {
         // GUI apps on macOS do not inherit the shell PATH (Homebrew tools live in /usr/local/bin).
@@ -328,11 +338,58 @@ fn is_local(url: &Url) -> bool {
     matches!(url.host_str(), Some("localhost") | Some("127.0.0.1"))
 }
 
+/// Removes the parts of an environment value that point into the AppImage mount (`appdir`).
+/// Returns None if nothing is left, so the variable should be removed altogether.
+fn without_appdir(value: &str, appdir: &str) -> Option<String> {
+    if !value.contains(appdir) {
+        return Some(value.to_string());
+    }
+    let kept: Vec<&str> = value.split(':').filter(|part| !part.starts_with(appdir)).collect();
+    if kept.iter().all(|part| part.is_empty()) {
+        None
+    } else {
+        Some(kept.join(":"))
+    }
+}
+
+/// Inside an AppImage the launcher points many variables (LD_LIBRARY_PATH, PYTHONHOME, GTK_PATH,
+/// PATH, ...) into its mount, for the bundled WebKitGTK only. The backend and the system tools it
+/// starts (pg_dump, xdg-open) must not see them, or they load the bundled libraries and Python.
+fn clean_appimage_env(cmd: &mut Command) {
+    let Ok(appdir) = std::env::var("APPDIR") else { return };
+    for (key, value) in std::env::vars_os() {
+        let (Some(key), Some(value)) = (key.to_str(), value.to_str()) else { continue };
+        match without_appdir(value, &appdir) {
+            None => {
+                cmd.env_remove(key);
+            }
+            Some(cleaned) if cleaned != value => {
+                cmd.env(key, cleaned);
+            }
+            Some(_) => {}
+        }
+    }
+    for key in ["APPIMAGE", "ARGV0", "OWD"] {
+        cmd.env_remove(key);
+    }
+}
+
 /// Opens an http(s) URL in the system browser. Other schemes are ignored.
 fn open_external(app: &AppHandle, url: &Url) {
-    if matches!(url.scheme(), "http" | "https") {
-        let _ = app.opener().open_url(url.as_str(), None::<&str>);
+    if !matches!(url.scheme(), "http" | "https") {
+        return;
     }
+    if std::env::var_os("APPDIR").is_some() {
+        // xdg-open would start the browser with the AppImage's libraries
+        let mut cmd = Command::new("xdg-open");
+        cmd.arg(url.as_str());
+        clean_appimage_env(&mut cmd);
+        std::thread::spawn(move || {
+            let _ = cmd.status();
+        });
+        return;
+    }
+    let _ = app.opener().open_url(url.as_str(), None::<&str>);
 }
 
 #[tauri::command]
