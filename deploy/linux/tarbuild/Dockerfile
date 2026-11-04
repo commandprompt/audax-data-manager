@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS build-base
+FROM ubuntu:22.04 AS build-base
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -37,7 +37,7 @@ RUN wget -q -O /tmp/nfpm.tar.gz \
     tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin nfpm && \
     rm /tmp/nfpm.tar.gz
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -54,12 +54,40 @@ WORKDIR /root
 SHELL ["/bin/bash", "-c"]
 
 COPY --from=build-base /usr/local /usr/local
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl npm gnupg patchelf libpq-dev file binutils build-essential
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl gnupg patchelf libpq-dev file binutils build-essential
 
 RUN mkdir -p /etc/apt/keyrings && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends nodejs
+
+# Tauri: WebKitGTK and the other libraries the shell and the AppImage bundler need
+RUN apt-get update && apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev \
+    libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev wget xdg-utils
+
+ARG RUSTUP_VERSION="1.28.2"
+ARG RUSTUP_INIT_SHA256="20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c"
+ARG RUST_VERSION="1.98.0"
+ARG TAURI_CLI_VERSION="2.11.5"
+RUN curl -fsSL -o /tmp/rustup-init \
+        "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/x86_64-unknown-linux-gnu/rustup-init" && \
+    echo "${RUSTUP_INIT_SHA256}  /tmp/rustup-init" | sha256sum -c - && \
+    chmod +x /tmp/rustup-init && \
+    /tmp/rustup-init -y --profile minimal --default-toolchain ${RUST_VERSION} && \
+    rm /tmp/rustup-init
+ENV PATH=/root/.cargo/bin:$PATH
+RUN cargo install tauri-cli --version =${TAURI_CLI_VERSION} --locked
+
+# the AppImage tools cannot use FUSE inside a container
+ENV APPIMAGE_EXTRACT_AND_RUN=1
+
+# appimagetool packs the server into the AppImage that tauri-cli builds
+ARG APPIMAGETOOL_VERSION="1.9.1"
+ARG APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
+RUN curl -fsSL -o /usr/local/bin/appimagetool \
+        "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage" && \
+    echo "${APPIMAGETOOL_SHA256}  /usr/local/bin/appimagetool" | sha256sum -c - && \
+    chmod +x /usr/local/bin/appimagetool
 
 RUN apt autoremove -y
 

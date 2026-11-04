@@ -4,7 +4,6 @@ set -e
 echo "REPO=$REPO"
 echo "BRANCH=$BRANCH"
 echo "VERSION=$VERSION"
-echo "DEBUG=$DEBUG"
 
 # Cloning repo
 git clone $REPO --depth 1 -b $BRANCH pgmanage
@@ -23,21 +22,6 @@ then
 
     # Getting last tag version
     export VERSION=$(git describe --tags $(git rev-list --tags --max-count=1))
-fi
-
-# if change nwjs and build options for debug
-if [ "$DEBUG" == false ]
-then
-    NWJS_URL='https://dl.nwjs.io/v0.114.0/nwjs-v0.114.0-linux-x64.tar.gz'
-    NWJS_ARCHIVE='nwjs-v0.114.0-linux-x64.tar.gz'
-    NWJS_DIR='nwjs-v0.114.0-linux-x64'
-else
-    NWJS_URL='https://dl.nwjs.io/v0.114.0/nwjs-sdk-v0.114.0-linux-x64.tar.gz'
-    NWJS_ARCHIVE='nwjs-sdk-v0.114.0-linux-x64.tar.gz'
-    NWJS_DIR='nwjs-sdk-v0.114.0-linux-x64'
-    echo "*****************************************************"
-    echo "*********** BUILDING DEBUG CONFIGURATION ************"
-    echo "*****************************************************"
 fi
 
 # Building server
@@ -73,6 +57,7 @@ pyinstaller audaxdm-lin.spec
 mv dist/* $HOME
 rm -rf build dist
 cd $HOME
+cp process_executor audaxdm-server/
 
 # temporarily disabled, we do not distribute the server-only version yet
 # mkdir pgmanage-server_$VERSION
@@ -80,38 +65,24 @@ cd $HOME
 # tar -czvf pgmanage-server_$VERSION-linux-x64.tar.gz pgmanage-server_$VERSION/
 # mv pgmanage-server_$VERSION-linux-x64.tar.gz /tmp/
 
-# Building app
-cd /deploy
-curl -C - -LO $NWJS_URL
-# get appimagetool
-curl -C - -LO https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage && chmod +x /deploy/appimagetool-x86_64.AppImage
-
-cd -
-tar -xzvf /deploy/$NWJS_ARCHIVE
-mv $NWJS_DIR audaxdm-app_$VERSION
-cd audaxdm-app_$VERSION
-
-cp -r $HOME/audaxdm-server ./
-cp $HOME/process_executor ./audaxdm-server/
-# copy index.html .desktop and pgmanage_icon.png to the output dir
-cp $HOME/pgmanage/deploy/app/* .
-# adjust the version
-sed -i "s/version_placeholder/v$VERSION/" index.html
-sed -i "s/X-AppImage-Version=dev/X-AppImage-Version=$VERSION/" audaxdm.desktop
-# rename nwjs runtime as audaxdm-app
-mv nw audaxdm-app && ln -s ./audaxdm-app AppRun
-cd $HOME
-/deploy/appimagetool-x86_64.AppImage --appimage-extract-and-run audaxdm-app_$VERSION/ audaxdm-$VERSION.AppImage
-# tar -czvf pgmanage-app_$VERSION-linux-x64.tar.gz pgmanage-app_$VERSION/
-# mv pgmanage-app_$VERSION-linux-x64.tar.gz /tmp/
-mv audaxdm-$VERSION.AppImage /deploy
+# Building app: tauri-cli makes an AppImage with the shell and WebKitGTK. The server is added
+# afterwards: linuxdeploy would try to deploy the dependencies of its binaries and strip them.
+cd $HOME/pgmanage/deploy/tauri/src-tauri
+# the tag may carry a suffix (1.6.1-release), the app version has to be a plain semver
+sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION%%-*}\"/" tauri.conf.json
+cargo tauri build --bundles appimage -- --locked
+cd target/release/bundle/appimage
+mv ./*.AppImage shell.AppImage
+./shell.AppImage --appimage-extract
+mkdir -p "squashfs-root/usr/lib/Audax Data Manager"
+cp -a $HOME/audaxdm-server "squashfs-root/usr/lib/Audax Data Manager/"
+ARCH=x86_64 appimagetool squashfs-root /deploy/audaxdm-$VERSION.AppImage
 
 # Building deb and rpm packages
 cd $HOME/pgmanage/deploy/linux/pkgbuild
-mkdir stage
-mv $HOME/audaxdm-app_$VERSION stage/audaxdm-app
-# the nwjs archive gives mode 0700 to this directory
-chmod 755 stage/audaxdm-app
+mkdir -p stage/audaxdm-app
+cp $HOME/pgmanage/deploy/tauri/src-tauri/target/release/audaxdm-app stage/audaxdm-app/
+cp -r $HOME/audaxdm-server stage/audaxdm-app/
 cp $HOME/pgmanage/LICENSE stage/
 nfpm pkg -p deb -t /deploy/
 nfpm pkg -p rpm -t /deploy/

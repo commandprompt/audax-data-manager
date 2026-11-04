@@ -4,6 +4,6 @@ Exec=audaxdm-app
 Terminal=false
 Type=Application
 Icon=audaxdm-app
-StartupWMClass=audaxdm
+StartupWMClass=audaxdm-app
 Comment=Audax Data Manager - a modern SQL Editor and Database Client for Developers and Administrators
 Categories=Development;
