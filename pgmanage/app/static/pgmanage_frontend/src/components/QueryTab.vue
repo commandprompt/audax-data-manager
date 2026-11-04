@@ -166,6 +166,7 @@ import QueryResultTabs from "./QueryResultTabs.vue";
 import FileInputChangeMixin from '../mixins/file_input_mixin'
 import { tabsStore, connectionsStore, messageModalStore, fileManagerStore, commandsHistoryStore } from "../stores/stores_initializer";
 import BlockSizeSelector from './BlockSizeSelector.vue';
+import { saveBlobAs } from '../utils/native_dialog';
 
 export default {
   name: "QueryTab",
@@ -629,11 +630,7 @@ export default {
         }
 
       } else {
-        const downloadLink = document.createElement("a")
-        downloadLink.href = URL.createObjectURL(file)
-        downloadLink.download = file.name
-        downloadLink.click();
-        setTimeout(() => URL.revokeObjectURL(downloadLink.href), 60000 )
+        await saveBlobAs(file, file.name);
       }
     },
     handleResize() {

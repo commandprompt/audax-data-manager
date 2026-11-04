@@ -1,25 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { toPng } from "html-to-image";
 import { capture } from "@src/erd_plugins/screenshot";
+import { saveBlobAs } from "@src/utils/native_dialog";
 
 vi.mock("html-to-image", () => ({
   toPng: vi.fn(),
 }));
 
-describe("capture", () => {
-  let clickSpy;
-  let createElementSpy;
+vi.mock("@src/utils/native_dialog", () => ({
+  saveBlobAs: vi.fn(),
+}));
 
+describe("capture", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
-    createElementSpy = vi.spyOn(document, "createElement");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ blob: async () => new Blob(["png-bytes"]) }),
+    );
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("returns null and never calls toPng when no element is given", async () => {
@@ -85,23 +88,20 @@ describe("capture", () => {
 
     await capture(document.createElement("div"));
 
-    expect(clickSpy).not.toHaveBeenCalled();
+    expect(saveBlobAs).not.toHaveBeenCalled();
   });
 
-  it("downloads a timestamped PNG when shouldDownload is true", async () => {
+  it("saves a timestamped PNG when shouldDownload is true", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1234567890);
     toPng.mockResolvedValueOnce("data:image/png;base64,xyz");
 
     await capture(document.createElement("div"), { shouldDownload: true });
 
-    const anchorCallIndex = createElementSpy.mock.calls.findIndex(
-      ([tag]) => tag === "a",
-    );
-    expect(anchorCallIndex).toBeGreaterThan(-1);
-
-    const anchor = createElementSpy.mock.results[anchorCallIndex].value;
-    expect(anchor.download).toBe("erd-screenshot-1234567890.png");
-    expect(anchor.href).toBe("data:image/png;base64,xyz");
-    expect(clickSpy).toHaveBeenCalledTimes(1);
+    // the save runs in the background, capture() does not wait for it
+    await vi.waitFor(() => expect(saveBlobAs).toHaveBeenCalledTimes(1));
+    expect(fetch).toHaveBeenCalledWith("data:image/png;base64,xyz");
+    const [blob, fileName] = saveBlobAs.mock.calls[0];
+    expect(blob).toBeInstanceOf(Blob);
+    expect(fileName).toBe("erd-screenshot-1234567890.png");
   });
 });

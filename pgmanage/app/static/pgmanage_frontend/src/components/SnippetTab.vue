@@ -59,6 +59,7 @@ import { setupAceDragDrop, setupAceSelectionHighlight } from "../ace_extras/plug
 import FileInputChangeMixin from "../mixins/file_input_mixin";
 import { maxLinesForIndentSQL } from "../constants";
 import { showToast } from "../notification_control";
+import { saveBlobAs } from "../utils/native_dialog";
 
 export default {
   name: "SnippetTab",
@@ -297,11 +298,7 @@ export default {
           console.log(e);
         }
       } else {
-        const downloadLink = document.createElement("a");
-        downloadLink.href = URL.createObjectURL(file);
-        downloadLink.download = file.name;
-        downloadLink.click();
-        setTimeout(() => URL.revokeObjectURL(downloadLink.href), 60000);
+        await saveBlobAs(file, file.name);
       }
     },
   },
