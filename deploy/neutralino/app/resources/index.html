@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Audax Data Manager</title>
+    <style type="text/css">
+      ::-webkit-scrollbar {
+        width: 5px;
+        background-color: rgba(116, 125, 141, 0.2);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background-color: rgba(116, 125, 141, 0.3);
+        border-radius: 5px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      html, body {
+        display: block;
+        margin: 0; padding: 0; border: 0;
+        width: 100%; height: 100%;
+        font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+        font-weight: 400;
+        line-height: 1.5;
+        overflow: hidden;
+        background-color: #FFFFFF;
+      }
+
+      #loading_interface {
+        position: absolute;
+        color: #16171E;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: linear-gradient(to right, #16171E, #1560AD, rgba(21, 96, 173, 0.5));
+      }
+
+      .pgmanage__splash {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        opacity: 0;
+
+        animation: fadeIn 0.3s linear forwards 0s;
+      }
+
+      .pgmanage__splash_wrapper {
+        display: flex;
+        flex-direction: column;
+        width: calc(100% - 20px);
+        height: calc(100% - 20px);
+        background-color: #FFFFFF;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        box-sizing: border-box;
+      }
+
+      .splash__header {
+        position: relative;
+        padding: 16px 0 20px 20px;
+      }
+
+      .splash__header::after {
+        content : '';
+        display: block;
+        background: linear-gradient(to right, #90949A, transparent);
+        height: 1px;
+        width: 0;
+        left: 20px;
+        position: absolute;
+        margin-top: 6px;
+        animation: growWidth 0.6s linear forwards 1.9s;
+      }
+
+      .splash__header_version {
+        font-size: 12px;
+        color: #4a6480;
+        position: absolute;
+        right: 20px;
+        bottom: 24px;
+        opacity: 0;
+        animation: fadeIn 0.6s linear forwards 2.4s;
+      }
+
+      .splash__body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+
+      .splash__body_wrapper {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        padding: 0 20px;
+        margin-top: 10px;
+        background-color: #FFFFFF;
+        transition: 0.45s;
+        opacity: 0;
+
+        animation: fadeIn 0.6s linear forwards 1.8s;
+      }
+
+      .stages {
+        font-size: 12px;
+        color: #4a6480;
+        margin-top: 20px;
+      }
+
+      .stages__item {
+        opacity: 0;
+        transform: translateY(-100%);
+
+        animation: textChangingAnimation 0.25s ease forwards;
+      }
+
+      .stages__item_title {
+        margin: 0;
+      }
+
+      .stages__item_description {
+        margin: 0;
+        font-size: 12px;
+        color: #4a6480;
+      }
+
+      .splash__footer {
+        margin-top: auto;
+      }
+
+      .splash__footer_button {
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+        background-color: rgba(116, 125, 141, 0.05);
+      }
+
+      .splash__footer_button:hover {
+        background-color: rgba(116, 125, 141, 0.1);
+        transition: all 0.15s linear;
+      }
+
+      .splash__footer_button::before {
+        border-style: solid;
+        border-width: 2px 2px 0 0;
+        content: '';
+        display: inline-block;
+        width: 0.45em;
+        height: 0.45em;
+        position: relative;
+        transform: rotate(135deg);
+        vertical-align: top;
+        transition: all 0.15s linear;
+        bottom: 2px;
+      }
+
+      .splash__output {
+        max-height: 0;
+        overflow-y: auto;
+        opacity: 0;
+        transition: opacity 0.15s linear 0.15s;
+        padding: 0 20px;
+      }
+
+      .splash__output.opened {
+        max-height: 120px;
+        opacity: 1;
+      }
+
+      .splash__output.opened + .splash__footer_button:before {
+        transform: rotate(315deg);
+      }
+
+      .splash__output_text {
+        font-size: 12px;
+        color: #4a6480;
+        margin: 0;
+      }
+
+      .splash__output_text:last-of-type {
+        padding-bottom: 10px;
+      }
+
+      /* Animated Logo audax styles */
+      #wordmark_audax path {
+        fill-opacity: 0;
+        stroke: #1560ad;
+        stroke-width: 0.5px;
+
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+
+        animation: svgDrawStrokes 1s linear forwards 0.3s,
+          fadeInInfill 0.6s linear forwards 1.3s,
+          svgFadeStrokes 0.6s linear forwards 1.3s;
+      }
+
+      #wordmark_data path,
+      #wordmark_manager path {
+        fill-opacity: 0;
+        animation: fadeInInfillMuted 0.5s linear forwards 0.3s;
+      }
+
+      #wordmark_divider {
+        fill-opacity: 0;
+        animation: fadeInInfillMuted 0.5s linear forwards 0.3s;
+      }
+      .loading-dots {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .loading-dots .dot {
+        width: 11px;
+        height: 11px;
+        margin: 0 7px;
+        border-radius: 50%;
+        background: #f29221;
+        animation: dotBounce 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+      }
+      .loading-dots .dot:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .loading-dots .dot:nth-child(2) {
+        animation-delay: 0.12s;
+      }
+      .loading-dots .dot:nth-child(3) {
+        animation-delay: 0.24s;
+      }
+      .loading-dots .dot:nth-child(4) {
+        animation-delay: 0.36s;
+      }
+      .loading-dots .dot:nth-child(5) {
+        animation-delay: 0.48s;
+      }
+
+      @keyframes dotBounce {
+        0%, 60%, 100% {
+          transform: scale(0.75) translateY(0);
+          box-shadow: 0 2px 3px rgba(242, 146, 33, 0.25);
+        }
+        30% {
+          transform: scale(1.15) translateY(-9px);
+          box-shadow: 0 14px 10px -4px rgba(242, 146, 33, 0.4);
+        }
+      }
+
+      @keyframes svgDrawStrokes {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes svgFadeStrokes {
+        to {
+          stroke: transparent;
+        }
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes fadeInInfill {
+        to {
+          fill-opacity: 1;
+        }
+      }
+
+      @keyframes fadeInInfillMuted {
+        to {
+          fill-opacity: 0.6;
+        }
+      }
+
+      @keyframes growInFromTop {
+        to {
+          height: 400px;
+          overflow-y: auto;
+        }
+      }
+
+      @keyframes growWidth {
+        to {
+          width: 75%;
+        }
+      }
+
+      @keyframes textChangingAnimation {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+          </style>
+  </head>
+  <body id="browser">
+    <div id="loading_interface">
+      <div class="pgmanage__splash">
+        <div class="pgmanage__splash_wrapper">
+          <div class="splash__header">
+            <svg
+              role="img"
+              aria-label="Welcome to Audax Data Manager"
+              version="1.1"
+              id="svg_splash_audax"
+              class="logo_audax"
+              xmlns="http://www.w3.org/2000/svg"
+              width="397.3654"
+              height="52.8"
+              viewBox="0 0 301.03439 40">
+              <title id="title2">Welcome to Audax Data Manager</title>
+              <g
+                aria-label="AUDAX"
+                id="wordmark_audax"
+                style="font-weight:700;font-size:50px;font-family:Jost, sans-serif;letter-spacing:0.75;fill:#1560ad"
+                transform="translate(-0.24414063,-22)">
+                <path
+                  d="M 26.708984,53.359375 H 12.011719 L 9.6923828,60 H 0.24414063 L 13.745117,23.549805 H 24.951172 L 38.452148,60 H 29.003906 Z M 14.355469,46.59668 H 24.34082 L 19.360352,32.094727 Z"
+                  id="path6278" />
+                <path
+                  d="m 37.87085,23.549805 h 9.399414 v 21.850586 q 0,4.516601 1.464843,6.469726 1.489258,1.928711 4.833985,1.928711 3.36914,0 4.833984,-1.928711 1.489258,-1.953125 1.489258,-6.469726 V 23.549805 h 9.399414 v 21.850586 q 0,7.739257 -3.881836,11.523437 -3.881836,3.78418 -11.84082,3.78418 -7.934571,0 -11.816406,-3.78418 -3.881836,-3.78418 -3.881836,-11.523437 z"
+                  id="path6280" />
+                <path
+                  d="m 83.993652,30.654297 v 22.241211 h 3.369141 q 5.761719,0 8.789062,-2.856446 3.051758,-2.856445 3.051758,-8.300781 0,-5.419922 -3.027343,-8.251953 -3.027344,-2.832031 -8.813477,-2.832031 z m -9.399414,-7.104492 h 9.91211 q 8.300781,0 12.353515,1.196289 4.077147,1.171875 6.982427,4.003906 2.56347,2.46582 3.80859,5.688477 1.24512,3.222656 1.24512,7.299804 0,4.125977 -1.24512,7.373047 -1.24512,3.222656 -3.80859,5.688477 -2.92969,2.832031 -7.031255,4.02832 Q 92.709473,60 84.506348,60 h -9.91211 z"
+                  id="path6282" />
+                <path
+                  d="M 134.34009,53.359375 H 119.64282 L 117.32349,60 h -9.44825 l 13.50098,-36.450195 h 11.20606 L 146.08325,60 h -9.44824 z M 121.98657,46.59668 h 9.98535 l -4.98046,-14.501953 z"
+                  id="path6284" />
+                <path
+                  d="M 167.35254,41.396484 179.99902,60 h -9.79004 L 161.68848,47.548828 153.24121,60 h -9.83887 L 156.04883,41.396484 143.89062,23.549805 h 9.81446 l 7.9834,11.743164 7.95898,-11.743164 h 9.86328 z"
+                  id="path6286" />
+              </g>
+              <path id="wordmark_divider" style="fill:#92a2b3" d="m 196.75586,0 h 1 v 40 h -1 z" />
+              <g
+                aria-label="DATA"
+                id="wordmark_data"
+                style="font-size:14px;font-family:Jost, sans-serif;letter-spacing:2.8;fill:#4a6480"
+                transform="translate(-0.24414063,-20.723192)">
+                <path
+                  d="m 216.75488,28.128712 v 7.936523 h 1.66797 q 2.11231,0 3.08985,-0.957031 0.98437,-0.957031 0.98437,-3.021484 0,-2.050782 -0.98437,-3.000977 -0.97754,-0.957031 -3.08985,-0.957031 z m -1.38086,-1.134766 h 2.83692 q 2.96679,0 4.35449,1.237305 1.38769,1.230469 1.38769,3.855469 0,2.638671 -1.39453,3.875976 -1.39453,1.237305 -4.34765,1.237305 h -2.83692 z"
+                  id="path6268" />
+                <path
+                  d="m 232.11934,28.354298 -1.87305,5.079101 h 3.75293 z m -0.7793,-1.360352 h 1.56543 l 3.88965,10.206055 h -1.43555 l -0.92969,-2.618164 h -4.60058 l -0.92969,2.618164 h -1.45606 z"
+                  id="path6270" />
+                <path
+                  d="m 238.5834,26.993946 h 8.63379 v 1.162109 h -3.62305 v 9.043946 h -1.38769 v -9.043946 h -3.62305 z"
+                  id="path6272" />
+                <path
+                  d="m 253.67442,28.354298 -1.87305,5.079101 h 3.75293 z m -0.7793,-1.360352 h 1.56543 l 3.88965,10.206055 h -1.43555 l -0.92969,-2.618164 h -4.60058 l -0.92969,2.618164 h -1.45606 z"
+                  id="path6274" />
+              </g>
+              <g
+                aria-label="MANAGER"
+                id="wordmark_manager"
+                style="font-size:14px;font-family:Jost, sans-serif;letter-spacing:2.8;fill:#4a6480"
+                transform="translate(-0.24414063,-23.276808)">
+                <path
+                  d="m 215.37402,47.293945 h 2.05762 l 2.60449,6.945313 2.61817,-6.945313 h 2.05761 V 57.5 h -1.34668 v -8.961914 l -2.63183,7 h -1.3877 l -2.63183,-7 V 57.5 h -1.33985 z"
+                  id="path6253" />
+                <path
+                  d="m 233.66426,48.654297 -1.87305,5.079101 h 3.75293 z m -0.7793,-1.360352 h 1.56543 L 238.34004,57.5 h -1.43555 l -0.92969,-2.618164 h -4.60058 L 230.44453,57.5 h -1.45605 z"
+                  id="path6255" />
+                <path
+                  d="m 242.63027,47.293945 h 1.85938 l 4.52539,8.538086 v -8.538086 h 1.33984 V 57.5 h -1.85937 l -4.52539,-8.538086 V 57.5 h -1.33985 z"
+                  id="path6257" />
+                <path
+                  d="m 259.31406,48.654297 -1.87304,5.079101 h 3.75293 z m -0.77929,-1.360352 h 1.56543 L 263.98985,57.5 h -1.43555 l -0.92969,-2.618164 h -4.60059 L 256.09434,57.5 h -1.45606 z"
+                  id="path6259" />
+                <path
+                  d="m 274.99297,56.043945 v -2.741211 h -2.25586 v -1.134765 h 3.62305 v 4.381836 q -0.79981,0.567382 -1.76367,0.861328 -0.96387,0.287109 -2.05762,0.287109 -2.39258,0 -3.7461,-1.394531 -1.34668,-1.401367 -1.34668,-3.896484 0,-2.501954 1.34668,-3.896485 1.35352,-1.401367 3.7461,-1.401367 0.99804,0 1.89355,0.246094 0.90235,0.246093 1.66114,0.724609 v 1.469727 q -0.76563,-0.649414 -1.62696,-0.977539 -0.86133,-0.328125 -1.81152,-0.328125 -1.87305,0 -2.81641,1.045898 -0.93652,1.045898 -0.93652,3.117188 0,2.064453 0.93652,3.110351 0.94336,1.045899 2.81641,1.045899 0.73144,0 1.30566,-0.123047 0.57422,-0.129883 1.03223,-0.396485 z"
+                  id="path6261" />
+                <path
+                  d="m 281.68262,47.293945 h 6.45312 v 1.16211 h -5.07226 v 3.021484 h 4.86035 v 1.162109 h -4.86035 v 3.698243 h 5.19531 V 57.5 h -6.57617 z"
+                  id="path6263" />
+                <path
+                  d="m 298.16817,52.714844 q 0.44433,0.15039 0.86133,0.642578 0.42382,0.492187 0.84765,1.353515 L 301.27852,57.5 h -1.4834 l -1.30566,-2.618164 q -0.50586,-1.025391 -0.98438,-1.360352 -0.47168,-0.334961 -1.29199,-0.334961 h -1.50391 V 57.5 h -1.38086 V 47.293945 h 3.11719 q 1.75,0 2.61133,0.731446 0.86133,0.731445 0.86133,2.208007 0,0.963868 -0.45117,1.59961 -0.44434,0.635742 -1.29883,0.881836 z m -3.45899,-4.286133 v 3.623047 h 1.73633 q 0.99805,0 1.50391,-0.458008 0.51269,-0.464844 0.51269,-1.360352 0,-0.895507 -0.51269,-1.346679 -0.50586,-0.458008 -1.50391,-0.458008 z"
+                  id="path6265" />
+              </g>
+            </svg>
+
+            <div class="splash__header_version">
+              <span id="app_version"></span>
+            </div>
+          </div>
+
+          <div id="login" class="splash__body">
+            <div class="splash__body_wrapper">
+              <div class="loading-dots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+              </div>
+
+              <div id="stages_container" class="stages">
+                <div class="stages__item">
+                  <h4 id="stages_item_title" class="stages__item_title"></h4>
+                  <p id="stages_item_description"class="stages__item_description"></p>
+                </div>
+              </div>
+          </div>
+
+          <div class="splash__footer">
+            <div id="output_container" class="splash__output">
+
+            </div>
+            <span class="splash__footer_button" id="open_more"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (async function () {
+      const titleEl = document.getElementById('stages_item_title');
+      const descEl = document.getElementById('stages_item_description');
+      const stagesContainer = document.getElementById('stages_container');
+      const outputContainer = document.getElementById('output_container');
+      const openMore = document.getElementById('open_more');
+      const SPLASH = { width: 600, height: 280, openedHeight: 360 };
+
+      Neutralino.init();
+      // Closing the splash while the application is still starting means the user gave up.
+      Neutralino.events.on('windowClose', () => Neutralino.app.exit());
+
+      // The window starts hidden (config); make it a fixed-size, centred, borderless splash.
+      const setSplashSize = (height) => Neutralino.window.setSize({ width: SPLASH.width, height, minWidth: SPLASH.width, minHeight: height, resizable: false });
+      await setSplashSize(SPLASH.height);
+      await Neutralino.window.setBorderless(true);
+      // The window manager ignores the position of a hidden window, so it is moved once shown.
+      await Neutralino.window.show();
+      const display = (await Neutralino.computer.getDisplays())[0];
+      if (display) {
+        await Neutralino.window.move(Math.round((display.resolution.width - SPLASH.width) / 2), Math.round((display.resolution.height - SPLASH.height) / 2));
+      }
+
+      function addOutput(text) {
+        const p = document.createElement('p');
+        p.className = 'splash__output_text';
+        p.textContent = text;
+        outputContainer.appendChild(p);
+      }
+
+      function onLine(stream, line) {
+        if (line === '') return;
+        if (stream === 'stderr') { addOutput(line); return; }
+        if (line.substring(0, 4) === 'http') {
+          descEl.textContent = '';
+          titleEl.textContent = 'Opening Audax Data Manager...';
+          return;
+        }
+        addOutput(line);
+        descEl.textContent = '';
+        if (line.startsWith(' ')) descEl.textContent = line; else titleEl.textContent = line;
+      }
+
+      openMore.addEventListener('click', () => {
+        outputContainer.classList.toggle('opened');
+        stagesContainer.classList.toggle('hidden');
+        setSplashSize(outputContainer.classList.contains('opened') ? SPLASH.openedHeight : SPLASH.height);
+      });
+
+      Neutralino.app.getConfig().then((c) => { document.getElementById('app_version').textContent = c.version; });
+
+      // --- backend ---------------------------------------------------------------------------
+      // spawnProcess replaces the environment with `envs`, so everything else is passed along.
+      const baseEnv = await Neutralino.os.getEnvs();
+      const appdir = baseEnv.APPDIR;
+      const quote = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
+      // On Linux the kernel kills the process if this one dies without cleaning up.
+      const guarded = (cmd) => `if command -v setpriv >/dev/null 2>&1; then exec setpriv --pdeathsig KILL ${cmd}; else exec ${cmd}; fi`;
+      const server = `${appdir}/usr/lib/audaxdm-server/audaxdm-server`;
+      const backend = await Neutralino.os.spawnProcess(guarded(`${quote(server)} -A`), { envs: baseEnv });
+
+      // --- main window -----------------------------------------------------------------------
+      // A second process (Neutralino has one window per process): the same binary and resources,
+      // started hidden, loading the backend. Once the application is mounted it shows itself and
+      // prints 'mainReady' on its standard output, which arrives here; then the splash goes away.
+      let mainProc = null;
+      async function openMainWindow(url) {
+        if (mainProc) return;
+        const base = NL_ARGS.filter((a, i) => i === 0 || a.startsWith('--path=') || a === '--load-dir-res');
+        const cmd = base.map(quote).join(' ') + ' --url=' + quote(url) + ' --window-title=' + quote('Audax Data Manager');
+        mainProc = await Neutralino.os.spawnProcess(guarded(cmd), { envs: baseEnv });
+      }
+
+      // Output of both processes, split into lines.
+      const pending = { stdOut: '', stdErr: '' };
+      Neutralino.events.on('spawnedProcess', (e) => {
+        const { id, action, data } = e.detail;
+        if (mainProc && id === mainProc.id) {
+          if (action === 'stdOut' && String(data).includes('mainReady')) Neutralino.window.hide();
+          // The main window was closed: end the whole application (this also stops the backend).
+          if (action === 'exit') Neutralino.app.exit();
+          return;
+        }
+        if (id !== backend.id) return;
+        if (action === 'exit') { addOutput('The server stopped (exit code ' + data + ').'); return; }
+        if (action !== 'stdOut' && action !== 'stdErr') return;
+        pending[action] += data;
+        const lines = pending[action].split('\n');
+        pending[action] = lines.pop();
+        lines.forEach((raw) => {
+          const line = raw.replace(/\r$/, '');
+          onLine(action === 'stdErr' ? 'stderr' : 'stdout', line);
+          if (action === 'stdOut' && line.startsWith('http')) openMainWindow(line.trim()).catch((err) => addOutput(String(err && err.message || err)));
+        });
+      });
+    })().catch((err) => { document.body.textContent = 'Startup error: ' + (err && err.message || JSON.stringify(err)); });
+    </script>
+  </body>
+</html>

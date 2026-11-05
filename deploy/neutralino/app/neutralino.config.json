@@ -1,0 +1,43 @@
+{
+  "applicationId": "com.commandprompt.audaxdm",
+  "version": "1.6.2",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/resources/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "none",
+  "dataLocation": "system",
+  "storageLocation": "system",
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "filesystem.*",
+    "clipboard.*",
+    "window.*",
+    "events.*",
+    "storage.*",
+    "computer.*"
+  ],
+  "cli": {
+    "clientLibrary": "/resources/js/neutralino.js"
+  },
+  "modes": {
+    "window": {
+      "title": "Audax Data Manager",
+      "width": 1024,
+      "height": 768,
+      "minWidth": 1024,
+      "minHeight": 768,
+      "hidden": true,
+      "useSavedState": false,
+      "exitProcessOnClose": false,
+      "enableInspector": false,
+      "emitDropEvents": true,
+      "injectGlobals": true,
+      "injectClientLibrary": true,
+      "injectScript": "/resources/shim.js"
+    }
+  }
+}
