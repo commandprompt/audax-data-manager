@@ -706,7 +706,10 @@ def validate_binary_path(request):
     env = os.environ.copy()
 
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        env.pop("LD_LIBRARY_PATH", None)
+        if "LD_LIBRARY_PATH_ORIG" in env:
+            env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
+        else:
+            env.pop("LD_LIBRARY_PATH", None)
 
     for utility in utilities:
         full_path = os.path.join(
