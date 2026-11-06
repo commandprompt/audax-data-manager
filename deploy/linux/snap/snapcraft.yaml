@@ -1,0 +1,83 @@
+name: audaxdm
+base: core26
+version: 1.6.1
+title: Audax Data Manager
+summary: Query and manage SQL databases
+description: |
+  Audax Data Manager is a free, open-source database client and administration tool
+  for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite and Oracle. One app for all of
+  these databases, with no tracking and no telemetry.
+license: MIT
+website: https://www.commandprompt.com/products/audax-data-manager/
+contact: https://github.com/commandprompt/Audax-Data-Manager/issues
+issues: https://github.com/commandprompt/Audax-Data-Manager/issues
+source-code: https://github.com/commandprompt/Audax-Data-Manager
+icon: snap/local/audaxdm.png
+
+grade: stable
+confinement: strict
+
+platforms:
+  amd64:
+
+package-repositories:
+  - type: apt
+    url: https://apt.postgresql.org/pub/repos/apt
+    suites:
+      - resolute-pgdg
+    components:
+      - main
+    key-id: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+
+parts:
+  audaxdm:
+    plugin: dump
+    source: snap/local/audaxdm-app.deb
+    source-type: deb
+
+  postgresql:
+    plugin: nil
+    stage-packages:
+      - postgresql-client-13
+      - postgresql-client-14
+      - postgresql-client-15
+      - postgresql-client-16
+      - postgresql-client-17
+      - postgresql-client-18
+      - pigz
+    override-build: |
+      craftctl default
+      mkdir -p $CRAFT_PART_INSTALL/usr/local/bin
+      for tool in psql pg_dump pg_dumpall pg_restore; do
+        ln -sf ../../lib/postgresql/18/bin/$tool $CRAFT_PART_INSTALL/usr/local/bin/$tool
+      done
+    organize:
+      usr/bin/pigz: usr/local/bin/pigz
+    stage:
+      - usr/lib/postgresql/*/bin/pg_dump
+      - usr/lib/postgresql/*/bin/pg_dumpall
+      - usr/lib/postgresql/*/bin/pg_restore
+      - usr/lib/postgresql/*/bin/psql
+      - usr/lib/x86_64-linux-gnu
+      - usr/local/bin
+
+layout:
+  /usr/lib/postgresql:
+    bind: $SNAP/usr/lib/postgresql
+  /usr/local/bin:
+    bind: $SNAP/usr/local/bin
+
+apps:
+  audaxdm:
+    command: opt/audaxdm-app/audaxdm-app
+    desktop: usr/share/applications/audaxdm-app.desktop
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - shmem
+
+plugs:
+  shmem:
+    interface: shared-memory
+    private: true
