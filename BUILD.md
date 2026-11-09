@@ -44,9 +44,9 @@ cd ./deploy/linux
 ./build_snap.sh [pgmanage_version]
 ```
 
-The current directory then contains the audaxdm_[pgmanage_version]_amd64.snap file. To install it locally:
+The current directory then contains the audaxdm-app_[pgmanage_version]_amd64.snap file. To install it locally:
 ```
-sudo snap install --dangerous audaxdm_[pgmanage_version]_amd64.snap
+sudo snap install --dangerous audaxdm-app_[pgmanage_version]_amd64.snap
 ```
 
 

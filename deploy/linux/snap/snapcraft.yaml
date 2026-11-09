@@ -1,4 +1,4 @@
-name: audaxdm
+name: audaxdm-app
 base: core26
 version: 1.6.1
 title: Audax Data Manager
@@ -68,7 +68,7 @@ layout:
     bind: $SNAP/usr/local/bin
 
 apps:
-  audaxdm:
+  audaxdm-app:
     command: opt/audaxdm-app/audaxdm-app
     desktop: usr/share/applications/audaxdm-app.desktop
     extensions: [gnome]
