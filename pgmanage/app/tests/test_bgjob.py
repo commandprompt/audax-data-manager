@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -156,3 +157,27 @@ class BackgroundJobsTests(TestCase):
 
         self.assertEqual(response.status_code, 410)
         self.assertEqual(response.json().get("data"), PROCESS_NOT_FOUND)
+
+    @patch("app.bgjob.jobs.Popen")
+    @patch.object(sys, "_MEIPASS", "/frozen", create=True)
+    @patch.object(sys, "frozen", True, create=True)
+    def test_start_frozen_restores_original_ld_library_path(self, mock_popen):
+        mock_popen.return_value.poll.return_value = None
+        env = {"LD_LIBRARY_PATH": "/frozen:/snap/lib", "LD_LIBRARY_PATH_ORIG": "/snap/lib"}
+
+        with patch.dict(os.environ, env):
+            BatchJob(id=self.job.id).start()
+
+        self.assertEqual(mock_popen.call_args.kwargs["env"]["LD_LIBRARY_PATH"], "/snap/lib")
+
+    @patch("app.bgjob.jobs.Popen")
+    @patch.object(sys, "_MEIPASS", "/frozen", create=True)
+    @patch.object(sys, "frozen", True, create=True)
+    def test_start_frozen_removes_ld_library_path(self, mock_popen):
+        mock_popen.return_value.poll.return_value = None
+
+        with patch.dict(os.environ, {"LD_LIBRARY_PATH": "/frozen"}):
+            os.environ.pop("LD_LIBRARY_PATH_ORIG", None)
+            BatchJob(id=self.job.id).start()
+
+        self.assertNotIn("LD_LIBRARY_PATH", mock_popen.call_args.kwargs["env"])

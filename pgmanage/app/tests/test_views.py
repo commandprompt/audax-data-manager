@@ -1,4 +1,8 @@
+import os
+import sys
+import tempfile
 from collections import OrderedDict
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -297,3 +301,29 @@ class LoginSession(TestCase):
         self.assertIsInstance(app_session.database_index, int)
         self.assertTrue(isinstance(app_session.databases, OrderedDict) or isinstance(app_session.databases, dict))
         self.assertEqual(app_session.user_key, self.client.session.session_key)
+
+
+class WorkspaceSession(TestCase):
+    """Test views from workspace.py file with user session.
+    """
+
+    def setUp(self):
+        execute_client_login(p_client=self.client, p_username=USERS['ADMIN']['USER'], p_password=USERS['ADMIN']['PASSWORD'])
+
+    @patch('app.views.workspace.subprocess.run')
+    @patch.object(sys, '_MEIPASS', '/frozen', create=True)
+    @patch.object(sys, 'frozen', True, create=True)
+    def test_validate_binary_path_frozen_restores_original_ld_library_path(self, mock_run):
+        mock_run.return_value.stdout = 'pigz 2.8'
+        env = {'LD_LIBRARY_PATH': '/frozen:/snap/lib', 'LD_LIBRARY_PATH_ORIG': '/snap/lib'}
+
+        with tempfile.TemporaryDirectory() as binary_path, patch.dict(os.environ, env):
+            open(os.path.join(binary_path, 'pigz'), 'w').close()
+            response = self.client.post(
+                reverse('validate_binary_path'),
+                {'binary_path': binary_path, 'utility_group': 'pigz'},
+                content_type='application/json'
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_run.call_args.kwargs['env']['LD_LIBRARY_PATH'], '/snap/lib')

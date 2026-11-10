@@ -34,6 +34,22 @@ This will will start the build process inside of a Docker container.
 
 The build process takes about 2 minutes to complete. Once deploy.sh completes the current directory should contain a freshly built .appimage file.
 
+## Linux Snap
+
+The snap is made from the .deb file that deploy.sh builds. Snapcraft and LXD must be installed.
+
+```
+cd ./deploy/linux
+./deploy.sh [pgmanage_version]
+./build_snap.sh [pgmanage_version]
+```
+
+The current directory then contains the audaxdm-app_[pgmanage_version]_amd64.snap file. To install it locally:
+```
+sudo snap install --dangerous audaxdm-app_[pgmanage_version]_amd64.snap
+```
+
+
 
 ## Mac OS .dmg
 
