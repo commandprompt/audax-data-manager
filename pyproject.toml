@@ -25,6 +25,7 @@ tempora = "5.6"
 paramiko = "3.5.1"
 prettytable = "3.17.0"
 pymssql = "2.3.10"
+typer = "<0.29"
 
 [build-system]
 requires = ["poetry-core"]

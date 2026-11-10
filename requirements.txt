@@ -20,3 +20,5 @@ tempora==5.6
 # paramiko is indirect dependency of sshtunnel
 # pinned because newer versions caused pyinstaller issues
 paramiko==3.5.1
+# typer is an indirect dependency of cherrypy (via jaraco.text); 0.29+ pulls in pydantic (Rust), which breaks flatpak build
+typer<0.29
