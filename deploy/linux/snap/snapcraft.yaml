@@ -1,4 +1,4 @@
-name: audaxdm-app
+name: audax-data-manager
 base: core26
 version: 1.6.1
 title: Audax Data Manager
@@ -9,9 +9,9 @@ description: |
   these databases, with no tracking and no telemetry.
 license: MIT
 website: https://www.commandprompt.com/products/audax-data-manager/
-contact: https://github.com/commandprompt/Audax-Data-Manager/issues
-issues: https://github.com/commandprompt/Audax-Data-Manager/issues
-source-code: https://github.com/commandprompt/Audax-Data-Manager
+contact: https://github.com/commandprompt/audax-data-manager/issues
+issues: https://github.com/commandprompt/audax-data-manager/issues
+source-code: https://github.com/commandprompt/audax-data-manager
 icon: snap/local/audaxdm.png
 
 grade: stable
@@ -30,7 +30,7 @@ package-repositories:
     key-id: B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 
 parts:
-  audaxdm:
+  audax-data-manager:
     plugin: dump
     source: snap/local/audaxdm-app.deb
     source-type: deb
