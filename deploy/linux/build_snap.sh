@@ -14,5 +14,5 @@ mkdir -p snap/local
 cp "$DEB" snap/local/audaxdm-app.deb
 cp ../../artwork/audax/audaxdm_256.png snap/local/audaxdm.png
 
-snapcraft clean audaxdm
+snapcraft clean audax-data-manager
 snapcraft pack
