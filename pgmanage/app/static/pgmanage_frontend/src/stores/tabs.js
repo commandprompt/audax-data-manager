@@ -594,9 +594,14 @@ const useTabsStore = defineStore("tabs", {
         return t.component === "ERDTab";
       });
 
-      let tabName = schema
-        ? `ERD: ${this.selectedPrimaryTab?.metaData?.selectedDatabase}@${schema}`
-        : "ERD";
+      const metaData = this.selectedPrimaryTab?.metaData;
+      let tabName = "ERD";
+      if (schema) {
+        tabName = `ERD: ${metaData?.selectedDatabase}@${schema}`;
+      } else if (metaData?.selectedDBMS !== "sqlite") {
+        tabName = `ERD: ${metaData?.selectedDatabase}`;
+      }
+      
       if (existingTabs) {
         let existingSameTab = existingTabs.find((t) => t.name == tabName);
         if (!!existingSameTab) {

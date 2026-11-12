@@ -162,7 +162,7 @@ class ERDGraphTests(TestCase):
                     "id": f"{node['id']}_{column['name']}",
                     "type": "column",
                     "parentNode": node["id"],
-                    "data": {"label": column["name"], "is_pk": column["is_pk"]},
+                    "data": {"label": column["name"], "is_pk": column["is_pk"], "is_fk": column["is_fk"]},
                 })
 
         # old layout: no PK flag on product_tags.tag, edge without column lists

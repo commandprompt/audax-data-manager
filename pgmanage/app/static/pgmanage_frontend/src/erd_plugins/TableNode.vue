@@ -1,7 +1,7 @@
 <template>
     <div class="vue-flow__node-table__wrap">
       <div class="vue-flow__node-table__title">
-        <p class="clipped-text">{{ data.label }}</p>
+        <p class="clipped-text">{{ title }}</p>
       </div>
     </div>
 </template>
@@ -24,6 +24,12 @@ export default {
     selected: {
       type: Boolean,
       default: false,
+    },
+  },
+
+  computed: {
+    title() {
+      return this.data.schema ? `${this.data.schema}.${this.data.label}` : this.data.label;
     },
   },
 }
