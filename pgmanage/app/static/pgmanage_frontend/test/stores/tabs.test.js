@@ -367,15 +367,31 @@ describe("useTabsStore", () => {
     expect(tab.component).toBe("ERDTab");
   });
 
-  it("should create an ERD tab without schema arg provided", async () => {
+  it("should create an SQLite ERD tab without schema arg provided", async () => {
     const store = useTabsStore();
     await store.createWorkspaceTab(0);
+    store.selectedPrimaryTab.metaData.selectedDBMS = "sqlite";
+    store.selectedPrimaryTab.metaData.selectedDatabase = "/tmp/test.db";
     store.createERDTab();
     const tab = store.selectedPrimaryTab.metaData.secondaryTabs.find(
       (tab) => tab.name === "ERD"
     );
     expect(tab).toBeTruthy();
     expect(tab.component).toBe("ERDTab");
+  });
+
+  it("should create one database ERD tab per database without schema arg provided", async () => {
+    const store = useTabsStore();
+    await store.createWorkspaceTab(0);
+    store.selectedPrimaryTab.metaData.selectedDBMS = "postgresql";
+    store.selectedPrimaryTab.metaData.selectedDatabase = "TestDatabase";
+    store.createERDTab();
+    store.createERDTab();
+    const tabs = store.selectedPrimaryTab.metaData.secondaryTabs.filter(
+      (tab) => tab.name === "ERD: TestDatabase"
+    );
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].component).toBe("ERDTab");
   });
 
   it("should create a Data Editor tab", () => {

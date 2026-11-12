@@ -4,6 +4,65 @@
       class="floating-toolbar floating-toolbar--filled floating-toolbar--right-top"
     >
       <span class="floating-toolbar__content">
+        <template v-if="schemas.length">
+          <div class="dropdown">
+            <button
+              type="button"
+              class="btn btn-icon-secondary"
+              title="Schemas"
+              data-bs-toggle="dropdown"
+              data-bs-auto-close="outside"
+              data-bs-popper-config='{"strategy": "fixed"}'
+              aria-expanded="false"
+            >
+              <i
+                v-if="loading"
+                class="fa-solid fa-spinner fa-spin"
+                role="status"
+              >
+                <span class="sr-only">Loading schemas...</span>
+              </i>
+              <i v-else class="fa-solid fa-layer-group"></i>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end erd-schemas">
+              <div class="d-flex justify-content-between px-2">
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm"
+                  :disabled="loading"
+                  @click="$emit('change-schemas', schemas.map((s) => s.name_raw))"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm"
+                  :disabled="loading"
+                  @click="$emit('change-schemas', [])"
+                >
+                  Clear
+                </button>
+              </div>
+              <div class="erd-schemas__list">
+                <label
+                  v-for="schema in schemas"
+                  :key="schema.name_raw"
+                  class="dropdown-item"
+                >
+                  <input
+                    class="form-check-input me-1"
+                    type="checkbox"
+                    :checked="selectedSchemas.includes(schema.name_raw)"
+                    :disabled="loading"
+                    @change="toggleSchema(schema.name_raw, $event.target.checked)"
+                  />
+                  {{ schema.name }}
+                </label>
+              </div>
+            </div>
+          </div>
+          <span class="divider"></span>
+        </template>
         <button
           class="btn btn-icon-secondary"
           title="Download a screenshot"
@@ -72,7 +131,35 @@ export default {
       type: Boolean,
       default: false,
     },
+    schemas: {
+      type: Array,
+      default: () => [],
+    },
+    selectedSchemas: {
+      type: Array,
+      default: () => [],
+    },
+    loading: {
+      type: Boolean,
+      default: false,
+    },
   },
-  emits: ["screenshot", "reset", "zoom-in", "zoom-out", "toggle-fullscreen"],
+  emits: ["screenshot", "reset", "zoom-in", "zoom-out", "toggle-fullscreen", "change-schemas"],
+  methods: {
+    toggleSchema(schema, checked) {
+      const selected = this.selectedSchemas.filter((s) => s !== schema);
+      if (checked) {
+        selected.push(schema);
+      }
+      this.$emit("change-schemas", selected);
+    },
+  },
 };
 </script>
+
+<style scoped>
+.erd-schemas__list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+</style>

@@ -4,6 +4,10 @@
     <Controls
     :in-fullscreen="inFullscreen"
     :capturing-screenshot="capturingScreenshot"
+    :schemas="schemas"
+    :selected-schemas="selectedSchemas || []"
+    :loading="loadingGraph"
+    @change-schemas="changeSchemas"
     @screenshot="doScreenshot"
     @reset="resetToDefault"
     @zoom-in="this.$refs.vueFlow.zoomIn()"
@@ -108,6 +112,9 @@ export default {
       jsonLayout: false,
       rerouteFrame: null,
       capturingScreenshot: false,
+      loadingGraph: false,
+      schemas: [],
+      selectedSchemas: null,
     };
   },
   mounted() {
@@ -154,12 +161,24 @@ export default {
       })
     },
     loadSchemaGraph() {
-      axios.post('/draw_graph/', {
+      const payload = {
         database_index: this.databaseIndex,
+        database_name: this.databaseName,
         workspace_id: this.workspaceId,
         schema: this.schema,
-      })
+      };
+      if (this.selectedSchemas) {
+        payload.schemas = this.selectedSchemas;
+      }
+
+      this.loadingGraph = true;
+      return axios.post('/draw_graph/', payload)
       .then((response) => {
+        if (response.data.available_schemas) {
+          this.schemas = response.data.available_schemas;
+          this.selectedSchemas = response.data.schemas;
+        }
+
         if (response.data.layout) {
           this.jsonLayout = true
           this.restoreVueFlowLayout(
@@ -175,6 +194,7 @@ export default {
               position: { x: 0, y:0 },
               data: {
                 label: node.label,
+                schema: node.schema,
               },
             }
           ));
@@ -194,6 +214,14 @@ export default {
       .catch((error) => {
         handleError(error);
       })
+      .finally(() => {
+        this.loadingGraph = false;
+      })
+    },
+    changeSchemas(schemas) {
+      this.selectedSchemas = schemas;
+      this.loadingGraph = true;
+      return this.saveGraphState().then(() => this.loadSchemaGraph());
     },
     shortDataType(typename) {
       const TYPEMAP = {
@@ -209,8 +237,11 @@ export default {
     },
     saveGraphState() {
       const layoutData = this.$refs.vueFlow.toObject();
+      if (this.selectedSchemas) {
+        layoutData.schemas = this.selectedSchemas;
+      }
 
-      axios.post('/save_graph_state/', {
+      return axios.post('/save_graph_state/', {
         workspace_id: this.workspaceId,
         schema: this.schema,
         database_name: this.databaseName,
@@ -256,11 +287,13 @@ export default {
               data: {
                 ...(node.data || {}),
                 label: tableData.label,
+                schema: tableData.schema,
               },
             }
           })
         } else {
           const tableCount = nextNodes.filter((node) => node.type === 'table').length
+          // TODO: put new tables in free space, not on top of each other at 0,0
           const position = {x: 0, y: 0}
 
           nextNodes.push(this.createTableNode(tableData, position))
@@ -301,6 +334,7 @@ export default {
         position,
         data: {
           label: node.label,
+          schema: node.schema,
         },
       }
     },

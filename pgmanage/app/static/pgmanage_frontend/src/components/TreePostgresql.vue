@@ -127,6 +127,15 @@ export default {
         ],
         cm_database: [
           {
+            label: "ER Diagram",
+            icon: "fab fa-hubspot",
+            onClick: () => {
+              this.checkCurrentDatabase(this.selectedNode, true, () => {
+                tabsStore.createERDTab();
+              });
+            },
+          },
+          {
             label: "Query Database",
             icon: "fas fa-search",
             onClick: () => {

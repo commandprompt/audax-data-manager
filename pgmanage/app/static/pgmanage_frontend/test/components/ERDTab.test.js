@@ -248,6 +248,7 @@ describe("ERDTab.vue", () => {
 
       expect(axios.post).toHaveBeenCalledWith("/draw_graph/", {
         database_index: initialProps.databaseIndex,
+        database_name: initialProps.databaseName,
         workspace_id: initialProps.workspaceId,
         schema: initialProps.schema,
       });
@@ -630,6 +631,117 @@ describe("ERDTab.vue", () => {
       await flushPromises();
 
       expect(handleError).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe("schema picker", () => {
+    const multiSchemaResponse = {
+      data: {
+        nodes: [],
+        edges: [],
+        schemas: ["public"],
+        available_schemas: [
+          { name: "public", name_raw: "public" },
+          { name: "Sales", name_raw: '"Sales"' },
+        ],
+      },
+    };
+
+    const mountMultiSchema = async () => {
+      axios.post.mockResolvedValue(multiSchemaResponse);
+      wrapper = mountComponent({ props: { ...initialProps, schema: "" } });
+      await flushPromises();
+      vi.clearAllMocks();
+    };
+
+    it("does not show the schema picker for a single-schema graph", async () => {
+      await flushPromises();
+
+      expect(wrapper.findComponent(Controls).props("schemas")).toEqual([]);
+      expect(wrapper.find('button[title="Schemas"]').exists()).toBe(false);
+    });
+
+    it("fills the schema picker from the response", async () => {
+      await mountMultiSchema();
+
+      const controls = wrapper.findComponent(Controls);
+      expect(controls.props("schemas")).toEqual(
+        multiSchemaResponse.data.available_schemas,
+      );
+      expect(controls.props("selectedSchemas")).toEqual(["public"]);
+    });
+
+    it("keeps the schema of each table in the table node", async () => {
+      axios.post.mockResolvedValue({
+        data: {
+          ...multiSchemaResponse.data,
+          nodes: [{ id: "sales.orders", label: "orders", schema: "sales", columns: [] }],
+        },
+      });
+      wrapper = mountComponent({ props: { ...initialProps, schema: "" } });
+      await flushPromises();
+
+      const tableNode = wrapper.vm.nodes.find((node) => node.id === "sales.orders");
+      expect(tableNode.data).toEqual({ label: "orders", schema: "sales" });
+    });
+
+    it("sends the selected schemas when the graph is loaded again", async () => {
+      await mountMultiSchema();
+
+      wrapper.vm.loadSchemaGraph();
+      await flushPromises();
+
+      expect(axios.post).toHaveBeenCalledWith("/draw_graph/", {
+        database_index: initialProps.databaseIndex,
+        database_name: initialProps.databaseName,
+        workspace_id: initialProps.workspaceId,
+        schema: "",
+        schemas: ["public"],
+      });
+    });
+
+    it("saves the selected schemas with the layout", async () => {
+      await mountMultiSchema();
+
+      wrapper.vm.saveGraphState();
+      await flushPromises();
+
+      expect(axios.post.mock.calls[0][0]).toBe("/save_graph_state/");
+      expect(axios.post.mock.calls[0][1].layout.schemas).toEqual(["public"]);
+    });
+
+    it("saves and then loads the graph when the selection changes", async () => {
+      await mountMultiSchema();
+
+      wrapper.findComponent(Controls).vm.$emit("change-schemas", ["public", '"Sales"']);
+      await flushPromises();
+
+      expect(axios.post.mock.calls.map((call) => call[0])).toEqual([
+        "/save_graph_state/",
+        "/draw_graph/",
+      ]);
+      expect(axios.post.mock.calls[0][1].layout.schemas).toEqual(["public", '"Sales"']);
+      expect(axios.post.mock.calls[1][1].schemas).toEqual(["public", '"Sales"']);
+    });
+
+    it("sets loadingGraph until the graph is loaded", async () => {
+      await mountMultiSchema();
+      let resolveGraph;
+      axios.post.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveGraph = resolve;
+        }),
+      );
+
+      wrapper.vm.loadSchemaGraph();
+
+      await wrapper.vm.$nextTick();
+      expect(wrapper.findComponent(Controls).props("loading")).toBe(true);
+
+      resolveGraph(multiSchemaResponse);
+      await flushPromises();
+
+      expect(wrapper.vm.loadingGraph).toBe(false);
     });
   });
 
