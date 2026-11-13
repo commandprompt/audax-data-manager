@@ -98,7 +98,11 @@ class PostgreSQLERDGraphTests(TestCase):
     def saved_nodes(self, graph):
         saved_nodes = []
         for node in graph["nodes"]:
-            saved_nodes.append({"id": node["id"], "type": "table", "data": {"label": node["label"]}})
+            saved_nodes.append({
+                "id": node["id"],
+                "type": "table",
+                "data": {"label": node["label"], "schema": node["schema"]},
+            })
             for column in node["columns"]:
                 saved_nodes.append({
                     "id": f"{node['id']}_{column['name']}",
@@ -107,6 +111,12 @@ class PostgreSQLERDGraphTests(TestCase):
                     "data": {"label": column["name"], "is_pk": column["is_pk"], "is_fk": column["is_fk"]},
                 })
         return saved_nodes
+
+    def table_names(self, nodes):
+        return {node["id"]: f"{node['schema']}.{node['label']}" for node in nodes}
+
+    def table_id(self, nodes, name):
+        return next(id_ for id_, table_name in self.table_names(nodes).items() if table_name == name)
 
     def test_selects_all_user_schemas_by_default(self):
         graph = self.draw_graph()
@@ -131,25 +141,24 @@ class PostgreSQLERDGraphTests(TestCase):
         self.assertEqual(graph["schemas"], ["information_schema"])
 
     def test_loads_tables_of_all_schemas_whatever_is_selected(self):
-        nodes = self.draw_graph(schema="erd_b")["nodes"]
+        names = self.table_names(self.draw_graph(schema="erd_b")["nodes"]).values()
 
-        self.assertEqual(
-            sorted(
-                (node["id"], node["schema"], node["label"])
-                for node in nodes if node["schema"] in ("erd_a", "erd_b")
-            ),
-            [
-                ("erd_a.customers", "erd_a", "customers"),
-                ("erd_b.customers", "erd_b", "customers"),
-                ("erd_b.orders", "erd_b", "orders"),
-            ],
-        )
+        self.assertTrue({"erd_a.customers", "erd_b.customers", "erd_b.orders"} <= set(names))
+
+    def test_uses_table_oid_as_node_id(self):
+        oid = self.database.connection.ExecuteScalar("SELECT 'erd_b.orders'::regclass::oid")
+
+        names = self.table_names(self.draw_graph()["nodes"])
+
+        self.assertEqual(names[str(oid)], "erd_b.orders")
 
     def test_shows_edge_between_schemas(self):
-        edges = [e for e in self.draw_graph(schema="erd_b")["edges"] if e["from"].startswith("erd_b.")]
+        graph = self.draw_graph(schema="erd_b")
+        names = self.table_names(graph["nodes"])
+        edges = [e for e in graph["edges"] if names[e["from"]] == "erd_b.orders"]
 
         self.assertEqual(
-            [(e["from"], e["to"], e["cgid"], e["from_col"], e["to_col"]) for e in edges],
+            [(names[e["from"]], names[e["to"]], e["cgid"], e["from_col"], e["to_col"]) for e in edges],
             [("erd_b.orders", "erd_a.customers", "erd_b.orders_customer_fk", "customer_id", "id")],
         )
 
@@ -163,7 +172,7 @@ class PostgreSQLERDGraphTests(TestCase):
         graph = self.draw_graph(schema="erd_b")
 
         self.assertEqual(graph["schemas"], ["erd_a", "erd_b"])
-        self.assertIn("erd_a.customers", [node["id"] for node in graph["new_nodes"]])
+        self.assertIn("erd_a.customers", self.table_names(graph["new_nodes"]).values())
 
     def test_ignores_unknown_schema_in_saved_layout(self):
         ERDLayout.objects.create(
@@ -177,8 +186,10 @@ class PostgreSQLERDGraphTests(TestCase):
         self.assertEqual(graph["schemas"], ["erd_a"])
 
     def test_saved_layout_gets_changed_fk_flags_again(self):
-        saved_nodes = self.saved_nodes(self.draw_graph())
-        next(n for n in saved_nodes if n["id"] == "erd_b.orders_customer_id")["data"]["is_fk"] = False
+        graph = self.draw_graph()
+        orders_id = self.table_id(graph["nodes"], "erd_b.orders")
+        saved_nodes = self.saved_nodes(graph)
+        next(n for n in saved_nodes if n["id"] == f"{orders_id}_customer_id")["data"]["is_fk"] = False
         ERDLayout.objects.create(
             connection=self.test_connection,
             name="dellstore@",
@@ -187,9 +198,31 @@ class PostgreSQLERDGraphTests(TestCase):
 
         graph = self.draw_graph()
 
-        self.assertEqual([node["id"] for node in graph["new_nodes"]], ["erd_b.orders"])
+        self.assertEqual([node["id"] for node in graph["new_nodes"]], [orders_id])
+
+    def test_keeps_saved_table_after_rename(self):
+        self.database.connection.Execute("CREATE TABLE erd_c.old_name (id integer PRIMARY KEY)")
+        self.addCleanup(self.database.connection.Execute, "DROP TABLE IF EXISTS erd_c.old_name, erd_c.new_name")
+        graph = self.draw_graph()
+        table_id = self.table_id(graph["nodes"], "erd_c.old_name")
+        ERDLayout.objects.create(
+            connection=self.test_connection,
+            name="dellstore@",
+            layout={"nodes": self.saved_nodes(graph), "edges": []},
+        )
+        self.database.connection.Execute("ALTER TABLE erd_c.old_name RENAME TO new_name")
+
+        graph = self.draw_graph()
+
+        self.assertIn(table_id, [node["id"] for node in graph["layout"]["nodes"]])
+        self.assertEqual([(node["id"], node["label"]) for node in graph["new_nodes"]], [(table_id, "new_name")])
 
     def test_drops_edges_that_do_not_connect_two_columns(self):
-        edges = [e for e in self.draw_graph()["edges"] if e["from"].startswith("erd_c.")]
+        graph = self.draw_graph()
+        names = self.table_names(graph["nodes"])
+        edges = [(names[e["from"]], names[e["to"]]) for e in graph["edges"]]
 
-        self.assertEqual([(e["from"], e["to"]) for e in edges], [("erd_c.ok_child", "erd_c.parent")])
+        self.assertEqual(
+            [edge for edge in edges if edge[0].startswith("erd_c.")],
+            [("erd_c.ok_child", "erd_c.parent")],
+        )

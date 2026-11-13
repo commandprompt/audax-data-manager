@@ -277,12 +277,14 @@ def draw_graph(request, database):
             selected_schemas = [s for s in schemas if s in selected_schemas]
 
         # TODO: get the data of each schema with a small number of queries, not with 3 queries for each table
+        node_ids_by_name = {}
         for current_schema in schemas:
             tables = database.QueryTables(False, current_schema)
 
             for table in tables.Rows:
                 table_name = table.get('name_raw') or table["table_name"]
-                node_id = qualify(current_schema, table_name)
+                node_id = str(table["oid"]) if multi_schema else table_name
+                node_ids_by_name[qualify(current_schema, table_name)] = node_id
                 node_data = {
                     "id": node_id,
                     "label": table["table_name"],
@@ -323,8 +325,8 @@ def draw_graph(request, database):
 
         def resolve_node_id(name, schema_name):
             name = qualify(schema_name, name)
-            if name in node_dict:
-                return name
+            if name in node_ids_by_name:
+                return node_ids_by_name[name]
 
             return node_ids_by_label.get(name)
 
@@ -452,7 +454,13 @@ def draw_graph(request, database):
                     for key in ("is_pk", "is_fk")
                 )
 
-                if table_is_new or has_new_columns or has_changed_keys:
+                saved_table_data = layout_nodes.get(table_id, {}).get("data", {})
+                has_changed_name = (
+                    saved_table_data.get("label") != table_data["label"]
+                    or saved_table_data.get("schema") != table_data.get("schema")
+                )
+
+                if table_is_new or has_new_columns or has_changed_keys or has_changed_name:
                     new_nodes.append(table_data)
 
             new_edges = [
