@@ -232,7 +232,7 @@ def renew_password(request, session: Session):
 def draw_graph(request, database):
     data = request.data
     schema = data.get("schema", '')
-    multi_schema = not schema and database.db_type == "postgresql"
+    multi_schema = database.db_type == "postgresql"
     edge_dict = {}
     node_dict = {}
 
@@ -266,17 +266,17 @@ def draw_graph(request, database):
                 {"name": row["schema_name"], "name_raw": row["name_raw"]}
                 for row in database.QuerySchemas().Rows
                 if row["schema_name"] not in ("pg_catalog", "information_schema")
+                or row["name_raw"] == schema
             ]
             schema_labels = {s["name_raw"]: s["name"] for s in available_schemas}
+            schemas = list(schema_labels)
 
-            requested = data.get("schemas")
-            if requested is None and layout_obj:
-                requested = layout_obj.layout.get("schemas")
-            if requested is None:
-                requested = list(schema_labels)
+            selected_schemas = layout_obj.layout.get("schemas") if layout_obj else None
+            if selected_schemas is None:
+                selected_schemas = [schema] if schema else schemas
+            selected_schemas = [s for s in schemas if s in selected_schemas]
 
-            schemas = [s for s in schema_labels if s in requested]
-
+        # TODO: get the data of each schema with a small number of queries, not with 3 queries for each table
         for current_schema in schemas:
             tables = database.QueryTables(False, current_schema)
 
@@ -398,7 +398,7 @@ def draw_graph(request, database):
         }
 
         schema_data = {
-            "schemas": schemas,
+            "schemas": selected_schemas,
             "available_schemas": available_schemas,
         } if multi_schema else {}
 

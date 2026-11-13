@@ -95,6 +95,19 @@ class PostgreSQLERDGraphTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         return response.json()
 
+    def saved_nodes(self, graph):
+        saved_nodes = []
+        for node in graph["nodes"]:
+            saved_nodes.append({"id": node["id"], "type": "table", "data": {"label": node["label"]}})
+            for column in node["columns"]:
+                saved_nodes.append({
+                    "id": f"{node['id']}_{column['name']}",
+                    "type": "column",
+                    "parentNode": node["id"],
+                    "data": {"label": column["name"], "is_pk": column["is_pk"], "is_fk": column["is_fk"]},
+                })
+        return saved_nodes
+
     def test_selects_all_user_schemas_by_default(self):
         graph = self.draw_graph()
         names = [schema["name"] for schema in graph["available_schemas"]]
@@ -104,11 +117,27 @@ class PostgreSQLERDGraphTests(TestCase):
         self.assertNotIn("information_schema", names)
         self.assertEqual(graph["schemas"], [schema["name_raw"] for schema in graph["available_schemas"]])
 
-    def test_qualifies_node_ids_and_sends_schema_apart_from_label(self):
-        nodes = self.draw_graph(schemas=["erd_a", "erd_b"])["nodes"]
+    def test_selects_own_schema_by_default_for_schema_tab(self):
+        graph = self.draw_graph(schema="erd_b")
+
+        self.assertEqual(graph["schemas"], ["erd_b"])
+
+    def test_offers_own_system_schema_for_schema_tab(self):
+        graph = self.draw_graph(schema="information_schema")
+        names = [schema["name"] for schema in graph["available_schemas"]]
+
+        self.assertIn("information_schema", names)
+        self.assertNotIn("pg_catalog", names)
+        self.assertEqual(graph["schemas"], ["information_schema"])
+
+    def test_loads_tables_of_all_schemas_whatever_is_selected(self):
+        nodes = self.draw_graph(schema="erd_b")["nodes"]
 
         self.assertEqual(
-            sorted((node["id"], node["schema"], node["label"]) for node in nodes),
+            sorted(
+                (node["id"], node["schema"], node["label"])
+                for node in nodes if node["schema"] in ("erd_a", "erd_b")
+            ),
             [
                 ("erd_a.customers", "erd_a", "customers"),
                 ("erd_b.customers", "erd_b", "customers"),
@@ -116,78 +145,51 @@ class PostgreSQLERDGraphTests(TestCase):
             ],
         )
 
-    def test_shows_edge_between_selected_schemas(self):
-        edges = self.draw_graph(schemas=["erd_a", "erd_b"])["edges"]
+    def test_shows_edge_between_schemas(self):
+        edges = [e for e in self.draw_graph(schema="erd_b")["edges"] if e["from"].startswith("erd_b.")]
 
         self.assertEqual(
             [(e["from"], e["to"], e["cgid"], e["from_col"], e["to_col"]) for e in edges],
             [("erd_b.orders", "erd_a.customers", "erd_b.orders_customer_fk", "customer_id", "id")],
         )
 
-    def test_drops_edge_to_unselected_schema(self):
-        graph = self.draw_graph(schemas=["erd_b"])
-
-        self.assertEqual(graph["schemas"], ["erd_b"])
-        self.assertEqual(graph["edges"], [])
-
-    def test_ignores_unknown_schema(self):
-        graph = self.draw_graph(schemas=["erd_a", "no_such_schema"])
-
-        self.assertEqual(graph["schemas"], ["erd_a"])
-
     def test_uses_schemas_from_saved_layout(self):
         ERDLayout.objects.create(
             connection=self.test_connection,
+            name="dellstore@erd_b",
+            layout={"nodes": [], "edges": [], "schemas": ["erd_a", "erd_b"]},
+        )
+
+        graph = self.draw_graph(schema="erd_b")
+
+        self.assertEqual(graph["schemas"], ["erd_a", "erd_b"])
+        self.assertIn("erd_a.customers", [node["id"] for node in graph["new_nodes"]])
+
+    def test_ignores_unknown_schema_in_saved_layout(self):
+        ERDLayout.objects.create(
+            connection=self.test_connection,
             name="dellstore@",
-            layout={"nodes": [], "edges": [], "schemas": ["erd_a"]},
+            layout={"nodes": [], "edges": [], "schemas": ["erd_a", "no_such_schema"]},
         )
 
         graph = self.draw_graph()
 
         self.assertEqual(graph["schemas"], ["erd_a"])
-        self.assertEqual([node["id"] for node in graph["new_nodes"]], ["erd_a.customers"])
 
-    def test_saved_layout_gets_fk_flag_when_referenced_schema_is_added(self):
-        saved_nodes = []
-        for node in self.draw_graph(schemas=["erd_b"])["nodes"]:
-            saved_nodes.append({"id": node["id"], "type": "table", "data": {"label": node["label"]}})
-            for column in node["columns"]:
-                saved_nodes.append({
-                    "id": f"{node['id']}_{column['name']}",
-                    "type": "column",
-                    "parentNode": node["id"],
-                    "data": {"label": column["name"], "is_pk": column["is_pk"], "is_fk": column["is_fk"]},
-                })
+    def test_saved_layout_gets_changed_fk_flags_again(self):
+        saved_nodes = self.saved_nodes(self.draw_graph())
+        next(n for n in saved_nodes if n["id"] == "erd_b.orders_customer_id")["data"]["is_fk"] = False
         ERDLayout.objects.create(
             connection=self.test_connection,
             name="dellstore@",
-            layout={"nodes": saved_nodes, "edges": [], "schemas": ["erd_b"]},
+            layout={"nodes": saved_nodes, "edges": []},
         )
 
-        graph = self.draw_graph(schemas=["erd_a", "erd_b"])
+        graph = self.draw_graph()
 
-        self.assertEqual(
-            sorted(node["id"] for node in graph["new_nodes"]),
-            ["erd_a.customers", "erd_b.orders"],
-        )
-
-    def test_keeps_single_schema_graph_when_schema_is_given(self):
-        graph = self.draw_graph(schema="erd_b")
-
-        self.assertNotIn("available_schemas", graph)
-        self.assertEqual(sorted(node["id"] for node in graph["nodes"]), ["customers", "orders"])
-        self.assertFalse(any("schema" in node for node in graph["nodes"]))
-        self.assertEqual(graph["edges"], [])
+        self.assertEqual([node["id"] for node in graph["new_nodes"]], ["erd_b.orders"])
 
     def test_drops_edges_that_do_not_connect_two_columns(self):
-        multi_schema_edges = self.draw_graph(schemas=["erd_c"])["edges"]
-        single_schema_edges = self.draw_graph(schema="erd_c")["edges"]
+        edges = [e for e in self.draw_graph()["edges"] if e["from"].startswith("erd_c.")]
 
-        self.assertEqual(
-            [(e["from"], e["to"]) for e in multi_schema_edges],
-            [("erd_c.ok_child", "erd_c.parent")],
-        )
-        self.assertEqual(
-            [(e["from"], e["to"]) for e in single_schema_edges],
-            [("ok_child", "parent")],
-        )
+        self.assertEqual([(e["from"], e["to"]) for e in edges], [("erd_c.ok_child", "erd_c.parent")])

@@ -10,6 +10,7 @@
     @change-schemas="changeSchemas"
     @screenshot="doScreenshot"
     @reset="resetToDefault"
+    @refresh="refreshGraph"
     @zoom-in="this.$refs.vueFlow.zoomIn()"
     @zoom-out="this.$refs.vueFlow.zoomOut()"
     @toggle-fullscreen="toggleFullScreen"
@@ -115,27 +116,62 @@ export default {
       loadingGraph: false,
       schemas: [],
       selectedSchemas: null,
+      unplacedTableIds: [],
     };
+  },
+  computed: {
+    schemaRawByName() {
+      return Object.fromEntries(this.schemas.map((schema) => [schema.name, schema.name_raw]));
+    },
   },
   mounted() {
     this.loadSchemaGraph();
   },
   methods: {
     onNodesInitialized() {
-      if (!this.jsonLayout) {
-        this.nodes = getLayoutedNodes(this.nodes, this.$refs.vueFlow.nodes,);
+      const isFirstLayout = !this.jsonLayout;
+      this.jsonLayout = true;
+      const placed = this.placeNewTables();
 
-        this.$nextTick(() => {
+      this.$nextTick(() => {
+        if (isFirstLayout) {
           this.$refs.vueFlow.fitView();
-          this.rerouteEdgesByTableDistance();
-          this.applyGroupedZIndexes();
-        })
-      } else {
-        this.$nextTick(() => {
-          this.rerouteEdgesByTableDistance();
-          this.applyGroupedZIndexes();
-        })
+        }
+        this.rerouteEdgesByTableDistance();
+        this.applyGroupedZIndexes();
+        if (placed) {
+          this.saveGraphState();
+        }
+      })
+    },
+    placeNewTables() {
+      const unplacedIds = new Set(this.unplacedTableIds);
+      const visibleTables = this.$refs.vueFlow.nodes.filter((node) => node.type === 'table' && !node.hidden);
+      const newTables = visibleTables.filter((node) => unplacedIds.has(node.id));
+
+      if (!newTables.length) {
+        return false;
       }
+
+      const placedBottoms = visibleTables
+        .filter((node) => !unplacedIds.has(node.id))
+        .map((node) => node.position.y + node.dimensions.height);
+      this.layoutTables(newTables, placedBottoms.length ? Math.max(...placedBottoms) : 0);
+
+      const newTableIds = new Set(newTables.map((node) => node.id));
+      this.unplacedTableIds = this.unplacedTableIds.filter((id) => !newTableIds.has(id));
+      return true;
+    },
+    layoutTables(tables, offsetY = 0) {
+      const nodeById = new Map(this.nodes.map((node) => [node.id, node]));
+
+      getLayoutedNodes(tables, tables, { offsetY }).forEach(({ id, position }) => {
+        this.$refs.vueFlow.updateNode(id, { position });
+        const node = nodeById.get(id);
+        if (node) {
+          node.position = position;
+        }
+      });
     },
     doScreenshot() {
       if (this.capturingScreenshot) {
@@ -151,7 +187,9 @@ export default {
       })
     },
     resetToDefault() {
-      this.nodes = getLayoutedNodes(this.nodes, this.$refs.vueFlow.nodes);
+      const tables = this.$refs.vueFlow.nodes.filter((node) => node.type === 'table');
+      this.layoutTables(tables.filter((node) => !node.hidden));
+      this.unplacedTableIds = tables.filter((node) => node.hidden).map((node) => node.id);
 
       this.$nextTick(() => {
         this.applyGroupedZIndexes();
@@ -167,9 +205,6 @@ export default {
         workspace_id: this.workspaceId,
         schema: this.schema,
       };
-      if (this.selectedSchemas) {
-        payload.schemas = this.selectedSchemas;
-      }
 
       this.loadingGraph = true;
       return axios.post('/draw_graph/', payload)
@@ -207,8 +242,12 @@ export default {
               columnNodes.push(col);
             })
           })
-          this.nodes = [...tableNodes, ...columnNodes]
-          this.edges = response.data.edges.map((edge) => this.createEdge(edge))
+          const nodes = [...tableNodes, ...columnNodes]
+          const edges = response.data.edges.map((edge) => this.createEdge(edge))
+          this.setSchemaVisibility(nodes, edges)
+          this.unplacedTableIds = tableNodes.map((node) => node.id)
+          this.nodes = nodes
+          this.edges = edges
         }
       })
       .catch((error) => {
@@ -220,6 +259,35 @@ export default {
     },
     changeSchemas(schemas) {
       this.selectedSchemas = schemas;
+      this.setSchemaVisibility(this.nodes, this.edges);
+      this.nodes.forEach((node) => this.$refs.vueFlow.updateNode(node.id, { hidden: node.hidden }));
+      this.edges.forEach((edge) => {
+        const storedEdge = this.$refs.vueFlow.findEdge(edge.id);
+        if (storedEdge) {
+          storedEdge.hidden = edge.hidden;
+        }
+      });
+      return this.saveGraphState();
+    },
+    setSchemaVisibility(nodes, edges) {
+      if (!this.selectedSchemas) {
+        return;
+      }
+
+      const hiddenTableIds = new Set(
+        nodes
+          .filter((node) => node.type === 'table' && !this.selectedSchemas.includes(this.schemaRawByName[node.data?.schema]))
+          .map((node) => node.id)
+      );
+
+      nodes.forEach((node) => {
+        node.hidden = hiddenTableIds.has(node.type === 'table' ? node.id : node.parentNode);
+      });
+      edges.forEach((edge) => {
+        edge.hidden = hiddenTableIds.has(edge.data?.sourceTableId) || hiddenTableIds.has(edge.data?.targetTableId);
+      });
+    },
+    refreshGraph() {
       this.loadingGraph = true;
       return this.saveGraphState().then(() => this.loadSchemaGraph());
     },
@@ -237,6 +305,10 @@ export default {
     },
     saveGraphState() {
       const layoutData = this.$refs.vueFlow.toObject();
+      const unplacedIds = new Set(this.unplacedTableIds);
+      layoutData.nodes = layoutData.nodes.filter(
+        (node) => !unplacedIds.has(node.id) && !unplacedIds.has(node.parentNode)
+      );
       if (this.selectedSchemas) {
         layoutData.schemas = this.selectedSchemas;
       }
@@ -293,7 +365,6 @@ export default {
           })
         } else {
           const tableCount = nextNodes.filter((node) => node.type === 'table').length
-          // TODO: put new tables in free space, not on top of each other at 0,0
           const position = {x: 0, y: 0}
 
           nextNodes.push(this.createTableNode(tableData, position))
@@ -311,11 +382,16 @@ export default {
         .map((edge) => this.createEdge(edge))
         .filter((edge) => !savedEdgeIds.has(edge.id))
 
-      this.nodes = nextNodes
-      this.edges = [
+      const nextEdges = [
         ...savedEdges,
         ...newEdges,
       ]
+      this.setSchemaVisibility(nextNodes, nextEdges)
+      this.unplacedTableIds = newNodesData
+        .filter((tableData) => !savedNodeIds.has(tableData.id))
+        .map((tableData) => tableData.id)
+      this.nodes = nextNodes
+      this.edges = nextEdges
 
       this.$nextTick(() => {
         if (savedViewport && this.$refs.vueFlow?.setViewport) {

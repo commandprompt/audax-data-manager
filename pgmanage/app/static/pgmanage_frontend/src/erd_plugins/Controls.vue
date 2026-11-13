@@ -15,14 +15,7 @@
               data-bs-popper-config='{"strategy": "fixed"}'
               aria-expanded="false"
             >
-              <i
-                v-if="loading"
-                class="fa-solid fa-spinner fa-spin"
-                role="status"
-              >
-                <span class="sr-only">Loading schemas...</span>
-              </i>
-              <i v-else class="fa-solid fa-layer-group"></i>
+              <i class="fa-solid fa-layer-group"></i>
             </button>
             <div class="dropdown-menu dropdown-menu-end erd-schemas">
               <div class="d-flex justify-content-between px-2">
@@ -86,6 +79,21 @@
         >
           <i class="fa-solid fa-rotate-left"></i>
         </button>
+        <button
+          class="btn btn-icon-secondary"
+          title="Refresh"
+          :disabled="loading"
+          @click="$emit('refresh')"
+        >
+          <i
+            v-if="loading"
+            class="fa-solid fa-spinner fa-spin"
+            role="status"
+          >
+            <span class="sr-only">Loading...</span>
+          </i>
+          <i v-else class="fa-solid fa-arrows-rotate"></i>
+        </button>
 
         <span class="divider"></span>
 
@@ -144,7 +152,7 @@ export default {
       default: false,
     },
   },
-  emits: ["screenshot", "reset", "zoom-in", "zoom-out", "toggle-fullscreen", "change-schemas"],
+  emits: ["screenshot", "reset", "refresh", "zoom-in", "zoom-out", "toggle-fullscreen", "change-schemas"],
   methods: {
     toggleSchema(schema, checked) {
       const selected = this.selectedSchemas.filter((s) => s !== schema);

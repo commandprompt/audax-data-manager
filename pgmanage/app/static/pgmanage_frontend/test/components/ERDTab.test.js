@@ -518,6 +518,25 @@ describe("ERDTab.vue", () => {
       expect(lastColumnNode.data.is_last).toBe(true);
     });
 
+    it("marks only the tables that are not in the saved layout as unplaced", async () => {
+      const layoutData = {
+        nodes: [{ id: "table1", type: "table", position: { x: 0, y: 0 } }],
+        edges: [],
+      };
+
+      wrapper.vm.restoreVueFlowLayout(
+        layoutData,
+        [
+          { id: "table1", label: "Table1", columns: [] },
+          { id: "table_new", label: "NewTable", columns: [] },
+        ],
+        [],
+      );
+      await flushPromises();
+
+      expect(wrapper.vm.unplacedTableIds).toEqual(["table_new"]);
+    });
+
     it("rebuilds columns and updates the label for an existing table with new columns", async () => {
       const layoutData = {
         nodes: [
@@ -602,6 +621,7 @@ describe("ERDTab.vue", () => {
 
   describe("saveGraphState", () => {
     it("posts the vue-flow layout to the backend", async () => {
+      wrapper.vm.unplacedTableIds = [];
       vueFlow().internalNodes = [{ id: "table1", type: "table" }];
       vueFlow().internalEdges = [];
       vueFlow().internalViewport = { x: 1, y: 2, zoom: 1 };
@@ -623,6 +643,23 @@ describe("ERDTab.vue", () => {
       });
     });
 
+    it("leaves unplaced tables and their columns out of the saved layout", async () => {
+      wrapper.vm.unplacedTableIds = ["table2"];
+      vueFlow().internalNodes = [
+        { id: "table1", type: "table" },
+        { id: "table2", type: "table" },
+        { id: "table2_id", type: "column", parentNode: "table2" },
+      ];
+      axios.post.mockResolvedValueOnce({ data: { status: "saved" } });
+
+      wrapper.vm.saveGraphState();
+      await flushPromises();
+
+      expect(axios.post.mock.calls.at(-1)[1].layout.nodes).toEqual([
+        { id: "table1", type: "table" },
+      ]);
+    });
+
     it("calls handleError when saving the layout fails", async () => {
       const error = new Error("save failed");
       axios.post.mockRejectedValueOnce(error);
@@ -637,8 +674,37 @@ describe("ERDTab.vue", () => {
   describe("schema picker", () => {
     const multiSchemaResponse = {
       data: {
-        nodes: [],
-        edges: [],
+        nodes: [
+          {
+            id: "public.orders",
+            label: "orders",
+            schema: "public",
+            columns: [
+              { name: "id", type: "integer", cgid: null, is_pk: true, is_fk: false },
+              { name: "client_id", type: "integer", cgid: "public.orders_fk", is_pk: false, is_fk: true },
+            ],
+          },
+          {
+            id: '"Sales".clients',
+            label: "clients",
+            schema: "Sales",
+            columns: [
+              { name: "id", type: "integer", cgid: null, is_pk: true, is_fk: false },
+            ],
+          },
+        ],
+        edges: [
+          {
+            from: "public.orders",
+            from_col: "client_id",
+            to: '"Sales".clients',
+            to_col: "id",
+            from_cols: ["client_id"],
+            to_cols: ["id"],
+            label: "",
+            cgid: "public.orders_fk",
+          },
+        ],
         schemas: ["public"],
         available_schemas: [
           { name: "public", name_raw: "public" },
@@ -653,6 +719,9 @@ describe("ERDTab.vue", () => {
       await flushPromises();
       vi.clearAllMocks();
     };
+
+    const hiddenById = (items) =>
+      Object.fromEntries(items.map((item) => [item.id, item.hidden]));
 
     it("does not show the schema picker for a single-schema graph", async () => {
       await flushPromises();
@@ -672,32 +741,41 @@ describe("ERDTab.vue", () => {
     });
 
     it("keeps the schema of each table in the table node", async () => {
-      axios.post.mockResolvedValue({
-        data: {
-          ...multiSchemaResponse.data,
-          nodes: [{ id: "sales.orders", label: "orders", schema: "sales", columns: [] }],
-        },
-      });
-      wrapper = mountComponent({ props: { ...initialProps, schema: "" } });
-      await flushPromises();
-
-      const tableNode = wrapper.vm.nodes.find((node) => node.id === "sales.orders");
-      expect(tableNode.data).toEqual({ label: "orders", schema: "sales" });
-    });
-
-    it("sends the selected schemas when the graph is loaded again", async () => {
       await mountMultiSchema();
 
-      wrapper.vm.loadSchemaGraph();
+      const tableNode = wrapper.vm.nodes.find((node) => node.id === "public.orders");
+      expect(tableNode.data).toEqual({ label: "orders", schema: "public" });
+    });
+
+    it("hides the tables, columns and edges of schemas that are not selected", async () => {
+      await mountMultiSchema();
+
+      expect(hiddenById(wrapper.vm.nodes)).toEqual({
+        "public.orders": false,
+        "public.orders_id": false,
+        "public.orders_client_id": false,
+        '"Sales".clients': true,
+        '"Sales".clients_id': true,
+      });
+      expect(hiddenById(wrapper.vm.edges)).toEqual({
+        'public.orders_client_id-"Sales".clients_id': true,
+      });
+    });
+
+    it("shows the tables of a selected schema and only saves the layout", async () => {
+      await mountMultiSchema();
+      vueFlow().internalEdges = wrapper.vm.edges.map((edge) => ({ ...edge }));
+
+      wrapper.findComponent(Controls).vm.$emit("change-schemas", ["public", '"Sales"']);
       await flushPromises();
 
-      expect(axios.post).toHaveBeenCalledWith("/draw_graph/", {
-        database_index: initialProps.databaseIndex,
-        database_name: initialProps.databaseName,
-        workspace_id: initialProps.workspaceId,
-        schema: "",
-        schemas: ["public"],
+      expect(vueFlowSpies.updateNode).toHaveBeenCalledWith('"Sales".clients', { hidden: false });
+      expect(vueFlowSpies.updateNode).toHaveBeenCalledWith('"Sales".clients_id', { hidden: false });
+      expect(hiddenById(vueFlow().internalEdges)).toEqual({
+        'public.orders_client_id-"Sales".clients_id': false,
       });
+      expect(axios.post.mock.calls.map((call) => call[0])).toEqual(["/save_graph_state/"]);
+      expect(axios.post.mock.calls[0][1].layout.schemas).toEqual(["public", '"Sales"']);
     });
 
     it("saves the selected schemas with the layout", async () => {
@@ -710,18 +788,22 @@ describe("ERDTab.vue", () => {
       expect(axios.post.mock.calls[0][1].layout.schemas).toEqual(["public"]);
     });
 
-    it("saves and then loads the graph when the selection changes", async () => {
+    it("saves the layout and then loads the graph on refresh", async () => {
       await mountMultiSchema();
 
-      wrapper.findComponent(Controls).vm.$emit("change-schemas", ["public", '"Sales"']);
+      await wrapper.find('button[title="Refresh"]').trigger("click");
       await flushPromises();
 
       expect(axios.post.mock.calls.map((call) => call[0])).toEqual([
         "/save_graph_state/",
         "/draw_graph/",
       ]);
-      expect(axios.post.mock.calls[0][1].layout.schemas).toEqual(["public", '"Sales"']);
-      expect(axios.post.mock.calls[1][1].schemas).toEqual(["public", '"Sales"']);
+      expect(axios.post.mock.calls[1][1]).toEqual({
+        database_index: initialProps.databaseIndex,
+        database_name: initialProps.databaseName,
+        workspace_id: initialProps.workspaceId,
+        schema: "",
+      });
     });
 
     it("sets loadingGraph until the graph is loaded", async () => {
@@ -1182,6 +1264,7 @@ describe("ERDTab.vue", () => {
     it("computes the layout, fits the view and reroutes/z-indexes when there is no saved layout", async () => {
       wrapper.vm.jsonLayout = false;
       wrapper.vm.nodes = [layoutedTableNode];
+      wrapper.vm.unplacedTableIds = ["table1"];
       vueFlow().internalNodes = [internalTableNode];
 
       const rerouteSpy = vi
@@ -1217,6 +1300,72 @@ describe("ERDTab.vue", () => {
       expect(vueFlowSpies.fitView).not.toHaveBeenCalled();
       expect(rerouteSpy).toHaveBeenCalledTimes(1);
       expect(applySpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("places new visible tables below the placed tables and does not move the placed ones", async () => {
+      wrapper.vm.jsonLayout = true;
+      wrapper.vm.nodes = [
+        { id: "placed", type: "table", position: { x: 300, y: 100 } },
+        { id: "new", type: "table", position: { x: 0, y: 0 } },
+        { id: "hidden_new", type: "table", position: { x: 0, y: 0 }, hidden: true },
+      ];
+      wrapper.vm.unplacedTableIds = ["new", "hidden_new"];
+      vueFlow().internalNodes = [
+        { id: "placed", type: "table", position: { x: 300, y: 100 }, dimensions: { width: 100, height: 200 } },
+        { id: "new", type: "table", position: { x: 0, y: 0 }, dimensions: { width: 100, height: 80 } },
+        { id: "hidden_new", type: "table", position: { x: 0, y: 0 }, dimensions: { width: 0, height: 0 }, hidden: true },
+      ];
+      vi.spyOn(wrapper.vm, "rerouteEdgesByTableDistance").mockImplementation(() => {});
+      vi.spyOn(wrapper.vm, "applyGroupedZIndexes").mockImplementation(() => {});
+      const saveSpy = vi.spyOn(wrapper.vm, "saveGraphState").mockImplementation(() => {});
+
+      wrapper.vm.onNodesInitialized();
+      await flushPromises();
+
+      expect(vueFlowSpies.updateNode.mock.calls).toEqual([
+        ["new", { position: { x: 50, y: 350 } }],
+      ]);
+      expect(wrapper.vm.nodes[1].position).toEqual({ x: 50, y: 350 });
+      expect(wrapper.vm.unplacedTableIds).toEqual(["hidden_new"]);
+      expect(vueFlowSpies.fitView).not.toHaveBeenCalled();
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not save when there is no new table to place", async () => {
+      wrapper.vm.jsonLayout = true;
+      wrapper.vm.unplacedTableIds = [];
+      vueFlow().internalNodes = [internalTableNode];
+      vi.spyOn(wrapper.vm, "rerouteEdgesByTableDistance").mockImplementation(() => {});
+      vi.spyOn(wrapper.vm, "applyGroupedZIndexes").mockImplementation(() => {});
+      const saveSpy = vi.spyOn(wrapper.vm, "saveGraphState").mockImplementation(() => {});
+
+      wrapper.vm.onNodesInitialized();
+      await flushPromises();
+
+      expect(vueFlowSpies.updateNode).not.toHaveBeenCalled();
+      expect(saveSpy).not.toHaveBeenCalled();
+    });
+
+    it("resetToDefault lays out the visible tables and marks the hidden ones as unplaced", async () => {
+      wrapper.vm.nodes = [
+        { id: "visible", type: "table", position: { x: 300, y: 300 } },
+        { id: "hidden", type: "table", position: { x: 900, y: 900 }, hidden: true },
+      ];
+      vueFlow().internalNodes = [
+        { id: "visible", type: "table", position: { x: 300, y: 300 }, dimensions: { width: 100, height: 80 } },
+        { id: "hidden", type: "table", position: { x: 900, y: 900 }, dimensions: { width: 100, height: 80 }, hidden: true },
+      ];
+      vi.spyOn(wrapper.vm, "rerouteEdgesByTableDistance").mockImplementation(() => {});
+      vi.spyOn(wrapper.vm, "applyGroupedZIndexes").mockImplementation(() => {});
+      vi.spyOn(wrapper.vm, "saveGraphState").mockImplementation(() => {});
+
+      wrapper.vm.resetToDefault();
+      await flushPromises();
+
+      expect(vueFlowSpies.updateNode.mock.calls).toEqual([
+        ["visible", { position: { x: 50, y: 50 } }],
+      ]);
+      expect(wrapper.vm.unplacedTableIds).toEqual(["hidden"]);
     });
 
     it("resetToDefault relayouts, reroutes, fits the view and persists the new state", async () => {

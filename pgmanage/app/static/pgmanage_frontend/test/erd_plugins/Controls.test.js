@@ -76,8 +76,17 @@ describe("Controls.vue", () => {
     expect(
       wrapper.findAll(".erd-schemas .btn-link").every((b) => b.element.disabled),
     ).toBe(true);
-    expect(wrapper.find('button[title="Schemas"] .fa-spinner').exists()).toBe(
+    expect(wrapper.find('button[title="Refresh"]').element.disabled).toBe(true);
+    expect(wrapper.find('button[title="Refresh"] .fa-spinner').exists()).toBe(
       true,
     );
+  });
+
+  it("emits refresh when the refresh button is clicked", async () => {
+    const wrapper = mountComponent();
+
+    await wrapper.find('button[title="Refresh"]').trigger("click");
+
+    expect(wrapper.emitted("refresh")).toHaveLength(1);
   });
 });
