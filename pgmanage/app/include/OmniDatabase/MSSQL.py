@@ -191,7 +191,7 @@ FROM sys.databases; """,
     def QuerySchemas(self):
         return self.Query(
             """
- SELECT schema_name
+ SELECT schema_name, schema_name AS name_raw
       FROM INFORMATION_SCHEMA.SCHEMATA
       ORDER BY schema_name
 """
@@ -204,7 +204,8 @@ FROM sys.databases; """,
         return self.Query(
             """
             SELECT table_name,
-                   table_schema
+                   table_schema,
+                   OBJECT_ID(QUOTENAME(table_schema) + '.' + QUOTENAME(table_name)) AS oid
             FROM information_schema.tables
             WHERE table_type != 'VIEW'
             {0}
@@ -491,7 +492,7 @@ WHERE 1=1
        fk.table_name,
        fk.constraint_name,
        fk.column_name,
-       pk.table_schema AS r_schema_name,
+       pk.table_schema AS r_table_schema,
        pk.table_name   AS r_table_name,
        pk.column_name  AS r_column_name,
         update_rule,

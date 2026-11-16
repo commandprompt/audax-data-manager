@@ -231,6 +231,11 @@ ERD_SYSTEM_SCHEMAS = {
     "postgresql": ("pg_catalog", "information_schema"),
     "mysql": ("information_schema", "mysql", "performance_schema", "sys"),
     "mariadb": ("information_schema", "mysql", "performance_schema", "sys"),
+    "mssql": (
+        "INFORMATION_SCHEMA", "sys", "guest", "db_owner", "db_accessadmin", "db_securityadmin",
+        "db_ddladmin", "db_backupoperator", "db_datareader", "db_datawriter",
+        "db_denydatareader", "db_denydatawriter",
+    ),
 }
 
 
@@ -293,7 +298,10 @@ def draw_graph(request, database):
 
             for table in tables.Rows:
                 table_name = table.get('name_raw') or table["table_name"]
-                node_id = str(table["oid"]) if database.db_type == "postgresql" else qualify(current_schema, table_name)
+                if database.db_type in ("postgresql", "mssql"):
+                    node_id = str(table["oid"])
+                else:
+                    node_id = qualify(current_schema, table_name)
                 node_ids_by_name[qualify(current_schema, table_name)] = node_id
                 node_data = {
                     "id": node_id,
