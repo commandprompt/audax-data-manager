@@ -86,6 +86,7 @@ class PostgreSQLERDGraphTests(TestCase):
         self.client.post = partial(self.client.post, content_type="application/json")
         self.request_data = {
             "database_index": self.test_connection.id,
+            "database_name": "dellstore",
             "workspace_id": "erd",
             "schema": "",
         }

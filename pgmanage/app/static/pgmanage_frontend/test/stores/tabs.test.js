@@ -394,6 +394,27 @@ describe("useTabsStore", () => {
     expect(tabs[0].component).toBe("ERDTab");
   });
 
+  it.each(["mysql", "mariadb"])(
+    "should create %s ERD tabs that do not depend on the active database",
+    async (dbms) => {
+      const store = useTabsStore();
+      await store.createWorkspaceTab(0);
+      store.selectedPrimaryTab.metaData.selectedDBMS = dbms;
+      store.selectedPrimaryTab.metaData.selectedDatabase = "ActiveDatabase";
+      store.createERDTab("classicmodels");
+      store.createERDTab();
+      const erdTabs = store.selectedPrimaryTab.metaData.secondaryTabs.filter(
+        (tab) => tab.component === "ERDTab"
+      );
+      expect(
+        erdTabs.map((tab) => [tab.name, tab.metaData.databaseName])
+      ).toEqual([
+        ["ERD: classicmodels", ""],
+        ["ERD", ""],
+      ]);
+    }
+  );
+
   it("should create a Data Editor tab", () => {
     const store = useTabsStore();
     const primaryTab = store.addTab({ name: "Primary Tab" });

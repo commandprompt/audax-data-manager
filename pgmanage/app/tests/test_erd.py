@@ -88,6 +88,7 @@ class ERDGraphTests(TestCase):
         self.client.post = partial(self.client.post, content_type="application/json")
         self.request_data = {
             "database_index": self.test_connection.id,
+            "database_name": self.sqlite_path,
             "workspace_id": "erd",
             "schema": "",
         }

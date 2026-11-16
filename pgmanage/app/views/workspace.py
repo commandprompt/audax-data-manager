@@ -227,12 +227,25 @@ def renew_password(request, session: Session):
     return HttpResponse(status=200)
 
 
+ERD_SYSTEM_SCHEMAS = {
+    "postgresql": ("pg_catalog", "information_schema"),
+    "mysql": ("information_schema", "mysql", "performance_schema", "sys"),
+    "mariadb": ("information_schema", "mysql", "performance_schema", "sys"),
+}
+
+
+def get_erd_layout_name(database_name, schema):
+    if database_name and os.path.isfile(database_name):
+        database_name = "sqlite3"
+    return f"{database_name}@{schema}"
+
+
 @user_authenticated
 @database_required(check_timeout=True, open_connection=True)
 def draw_graph(request, database):
     data = request.data
     schema = data.get("schema", '')
-    multi_schema = database.db_type == "postgresql"
+    multi_schema = database.db_type in ERD_SYSTEM_SCHEMAS
     edge_dict = {}
     node_dict = {}
 
@@ -252,10 +265,7 @@ def draw_graph(request, database):
         return f"{schema_name}.{name}" if multi_schema else name
 
     try:
-        database_name = (
-            "sqlite3" if database.db_type == "sqlite" else database.service
-        )
-        layout_name = f"{database_name}@{data.get('schema')}"
+        layout_name = get_erd_layout_name(data.get("database_name"), data.get("schema"))
 
         layout_obj = ERDLayout.objects.filter(name=layout_name, connection=Connection.objects.get(id=data.get("database_index"))).first()
 
@@ -265,7 +275,7 @@ def draw_graph(request, database):
             available_schemas = [
                 {"name": row["schema_name"], "name_raw": row["name_raw"]}
                 for row in database.QuerySchemas().Rows
-                if row["schema_name"] not in ("pg_catalog", "information_schema")
+                if row["schema_name"] not in ERD_SYSTEM_SCHEMAS[database.db_type]
                 or row["name_raw"] == schema
             ]
             schema_labels = {s["name_raw"]: s["name"] for s in available_schemas}
@@ -283,7 +293,7 @@ def draw_graph(request, database):
 
             for table in tables.Rows:
                 table_name = table.get('name_raw') or table["table_name"]
-                node_id = str(table["oid"]) if multi_schema else table_name
+                node_id = str(table["oid"]) if database.db_type == "postgresql" else qualify(current_schema, table_name)
                 node_ids_by_name[qualify(current_schema, table_name)] = node_id
                 node_data = {
                     "id": node_id,
@@ -495,12 +505,7 @@ def save_graph_state(request):
         data = request.data
         database_index = data.get("database_index")
         layout = data.get("layout")
-        database_name = (
-            "sqlite3"
-            if os.path.isfile(data.get("database_name"))
-            else data.get("database_name")
-        )
-        layout_name = f"{database_name}@{data.get('schema')}"
+        layout_name = get_erd_layout_name(data.get("database_name"), data.get("schema"))
         conn = Connection.objects.filter(id=database_index, user_id=request.user.id).first()
 
         if not conn:

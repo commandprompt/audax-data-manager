@@ -595,11 +595,14 @@ const useTabsStore = defineStore("tabs", {
       });
 
       const metaData = this.selectedPrimaryTab?.metaData;
+      const databaseName = ["mysql", "mariadb"].includes(metaData?.selectedDBMS)
+        ? ""
+        : metaData?.selectedDatabase;
       let tabName = "ERD";
       if (schema) {
-        tabName = `ERD: ${metaData?.selectedDatabase}@${schema}`;
-      } else if (metaData?.selectedDBMS !== "sqlite") {
-        tabName = `ERD: ${metaData?.selectedDatabase}`;
+        tabName = databaseName ? `ERD: ${databaseName}@${schema}` : `ERD: ${schema}`;
+      } else if (databaseName && metaData?.selectedDBMS !== "sqlite") {
+        tabName = `ERD: ${databaseName}`;
       }
       
       if (existingTabs) {
@@ -626,8 +629,7 @@ const useTabsStore = defineStore("tabs", {
       tab.metaData.schema = schema;
       tab.metaData.databaseIndex =
         this.selectedPrimaryTab?.metaData?.selectedDatabaseIndex;
-      tab.metaData.databaseName =
-        this.selectedPrimaryTab?.metaData?.selectedDatabase;
+      tab.metaData.databaseName = databaseName;
 
       this.selectTab(tab);
     },
