@@ -15,6 +15,14 @@ describe("TableNode.vue", () => {
     expect(wrapper.find(".vue-flow__node-table__title").text()).toBe("users");
   });
 
+  it("renders the schema in front of the table label when data.schema is set", () => {
+    const wrapper = mountComponent({ data: { label: "users", schema: "sales" } });
+
+    expect(wrapper.find(".vue-flow__node-table__title").text()).toBe(
+      "sales.users",
+    );
+  });
+
   it("renders an empty title when data.label is not set", () => {
     const wrapper = mountComponent({ data: {} });
 

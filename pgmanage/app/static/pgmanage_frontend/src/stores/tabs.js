@@ -594,9 +594,17 @@ const useTabsStore = defineStore("tabs", {
         return t.component === "ERDTab";
       });
 
-      let tabName = schema
-        ? `ERD: ${this.selectedPrimaryTab?.metaData?.selectedDatabase}@${schema}`
-        : "ERD";
+      const metaData = this.selectedPrimaryTab?.metaData;
+      const databaseName = ["mysql", "mariadb"].includes(metaData?.selectedDBMS)
+        ? ""
+        : metaData?.selectedDatabase;
+      let tabName = "ERD";
+      if (schema) {
+        tabName = databaseName ? `ERD: ${databaseName}@${schema}` : `ERD: ${schema}`;
+      } else if (databaseName && metaData?.selectedDBMS !== "sqlite") {
+        tabName = `ERD: ${databaseName}`;
+      }
+      
       if (existingTabs) {
         let existingSameTab = existingTabs.find((t) => t.name == tabName);
         if (!!existingSameTab) {
@@ -621,8 +629,7 @@ const useTabsStore = defineStore("tabs", {
       tab.metaData.schema = schema;
       tab.metaData.databaseIndex =
         this.selectedPrimaryTab?.metaData?.selectedDatabaseIndex;
-      tab.metaData.databaseName =
-        this.selectedPrimaryTab?.metaData?.selectedDatabase;
+      tab.metaData.databaseName = databaseName;
 
       this.selectTab(tab);
     },

@@ -227,11 +227,30 @@ def renew_password(request, session: Session):
     return HttpResponse(status=200)
 
 
+ERD_SYSTEM_SCHEMAS = {
+    "postgresql": ("pg_catalog", "information_schema"),
+    "mysql": ("information_schema", "mysql", "performance_schema", "sys"),
+    "mariadb": ("information_schema", "mysql", "performance_schema", "sys"),
+    "mssql": (
+        "INFORMATION_SCHEMA", "sys", "guest", "db_owner", "db_accessadmin", "db_securityadmin",
+        "db_ddladmin", "db_backupoperator", "db_datareader", "db_datawriter",
+        "db_denydatareader", "db_denydatawriter",
+    ),
+}
+
+
+def get_erd_layout_name(database_name, schema):
+    if database_name and os.path.isfile(database_name):
+        database_name = "sqlite3"
+    return f"{database_name}@{schema}"
+
+
 @user_authenticated
 @database_required(check_timeout=True, open_connection=True)
 def draw_graph(request, database):
     data = request.data
     schema = data.get("schema", '')
+    multi_schema = database.db_type in ERD_SYSTEM_SCHEMAS
     edge_dict = {}
     node_dict = {}
 
@@ -247,101 +266,139 @@ def draw_graph(request, database):
         }
         return type_map.get(column_type, column_type)
 
+    def qualify(schema_name, name):
+        return f"{schema_name}.{name}" if multi_schema else name
+
     try:
-        tables = database.QueryTables(False, schema)
+        layout_name = get_erd_layout_name(data.get("database_name"), data.get("schema"))
 
-        for table in tables.Rows:
-            node_id = table.get('name_raw') or table["table_name"]
-            node_data = {
-                "id": node_id,
-                "label": table["table_name"],
-                "group": 1,
-                "columns": []
-            }
-            table_columns = database.QueryTablesFields(
-                node_id, False, schema
-            ).Rows
+        layout_obj = ERDLayout.objects.filter(name=layout_name, connection=Connection.objects.get(id=data.get("database_index"))).first()
 
-            if database.has_schema:
-                pk_cols = []
-                pk = database.QueryTablesPrimaryKeys(node_id, False, schema).Rows
-                if pk:
-                    pk_name = pk[0].get("name_raw") or pk[0]["constraint_name"]
-                    pk_cols = database.QueryTablesPrimaryKeysColumns(pk_name, node_id, False, schema).Rows
-            else:
-                # SQLite needs the table name without quotes
-                pk_cols = database.QueryTablesPrimaryKeysColumns(table["table_name"]).Rows
-            pk_column_names = [x['column_name'] for x in pk_cols]
+        schemas = [schema]
+        schema_labels = {}
+        if multi_schema:
+            available_schemas = [
+                {"name": row["schema_name"], "name_raw": row["name_raw"]}
+                for row in database.QuerySchemas().Rows
+                if row["schema_name"] not in ERD_SYSTEM_SCHEMAS[database.db_type]
+                or row["name_raw"] == schema
+            ]
+            schema_labels = {s["name_raw"]: s["name"] for s in available_schemas}
+            schemas = list(schema_labels)
 
-            node_data['columns'] = list(({
-                'name': c['column_name'],
-                'type': short_data_type(c['data_type']),
-                'cgid': None,
-                'is_pk': c.get("name_raw", c["column_name"]) in pk_column_names,
-                'is_fk': False,
-                } for c in table_columns))
+            selected_schemas = layout_obj.layout.get("schemas") if layout_obj else None
+            if selected_schemas is None:
+                selected_schemas = [schema] if schema else schemas
+            selected_schemas = [s for s in schemas if s in selected_schemas]
 
-            node_dict[node_id] = node_data
-        
+        # TODO: get the data of each schema with a small number of queries, not with 3 queries for each table
+        node_ids_by_name = {}
+        for current_schema in schemas:
+            tables = database.QueryTables(False, current_schema)
+
+            for table in tables.Rows:
+                table_name = table.get('name_raw') or table["table_name"]
+                if database.db_type in ("postgresql", "mssql"):
+                    node_id = str(table["oid"])
+                else:
+                    node_id = qualify(current_schema, table_name)
+                node_ids_by_name[qualify(current_schema, table_name)] = node_id
+                node_data = {
+                    "id": node_id,
+                    "label": table["table_name"],
+                    "group": 1,
+                    "columns": []
+                }
+                if multi_schema:
+                    node_data["schema"] = schema_labels[current_schema]
+                table_columns = database.QueryTablesFields(
+                    table_name, False, current_schema
+                ).Rows
+
+                if database.has_schema:
+                    pk_cols = []
+                    pk = database.QueryTablesPrimaryKeys(table_name, False, current_schema).Rows
+                    if pk:
+                        pk_name = pk[0].get("name_raw") or pk[0]["constraint_name"]
+                        pk_cols = database.QueryTablesPrimaryKeysColumns(pk_name, table_name, False, current_schema).Rows
+                else:
+                    # SQLite needs the table name without quotes
+                    pk_cols = database.QueryTablesPrimaryKeysColumns(table["table_name"]).Rows
+                pk_column_names = [x['column_name'] for x in pk_cols]
+
+                node_data['columns'] = list(({
+                    'name': c['column_name'],
+                    'type': short_data_type(c['data_type']),
+                    'cgid': None,
+                    'is_pk': c.get("name_raw", c["column_name"]) in pk_column_names,
+                    'is_fk': False,
+                    } for c in table_columns))
+
+                node_dict[node_id] = node_data
+
         node_ids_by_label = {
             node["label"]: node_id
             for node_id, node in node_dict.items()
         }
 
-        def resolve_node_id(name):
-            if name in node_dict:
-                return name
+        def resolve_node_id(name, schema_name):
+            name = qualify(schema_name, name)
+            if name in node_ids_by_name:
+                return node_ids_by_name[name]
 
             return node_ids_by_label.get(name)
 
-        q_fks = database.QueryTablesForeignKeys(None, False, schema)
+        for current_schema in schemas:
+            q_fks = database.QueryTablesForeignKeys(None, False, current_schema)
+            fk_names = set()
 
-        for fk in q_fks.Rows:
-            # ensure that the new edge stays within the same schema and that both
-            # endpoints reference an existing node; otherwise the graph would
-            # contain an edge pointing at a non-existent node and fail to render
-            # FIXME: resolve FKs of partitioned table from its partitions
-            from_id = resolve_node_id(fk["table_name"])
-            to_id = resolve_node_id(fk["r_table_name"])
-            if fk["r_table_schema"] == schema and from_id and to_id:
-                edge_dict[fk["constraint_name"]] = {
-                    "from": from_id,
-                    "to": to_id,
-                    "from_col": None,
-                    "to_col": None,
-                    "from_cols": [],
-                    "to_cols": [],
-                    "label": "",
-                    "arrows": "to",
-                    "cgid": None
-                }
+            for fk in q_fks.Rows:
+                # ensure that the new edge stays within the selected schemas and that both
+                # endpoints reference an existing node; otherwise the graph would
+                # contain an edge pointing at a non-existent node and fail to render
+                # FIXME: resolve FKs of partitioned table from its partitions
+                from_id = resolve_node_id(fk["table_name"], fk.get("table_schema"))
+                to_id = resolve_node_id(fk["r_table_name"], fk.get("r_table_schema"))
+                if fk["r_table_schema"] in schemas and from_id and to_id:
+                    fk_names.add(fk["constraint_name"])
+                    edge_dict[qualify(fk.get("table_schema"), fk["constraint_name"])] = {
+                        "from": from_id,
+                        "to": to_id,
+                        "from_col": None,
+                        "to_col": None,
+                        "from_cols": [],
+                        "to_cols": [],
+                        "label": "",
+                        "arrows": "to",
+                        "cgid": None
+                    }
 
-        q_fkcols = database.QueryTablesForeignKeysColumns(list(edge_dict.keys()), None, False, schema)
-        for fkcol in q_fkcols.Rows:
-            cgid = fkcol['constraint_name']
-            edge = edge_dict.get(cgid)
+            q_fkcols = database.QueryTablesForeignKeysColumns(list(fk_names), None, False, current_schema)
+            for fkcol in q_fkcols.Rows:
+                cgid = qualify(fkcol.get("table_schema"), fkcol['constraint_name'])
+                edge = edge_dict.get(cgid)
 
-            if not edge:
-                continue
+                if not edge:
+                    continue
 
-            edge['from_cols'].append(fkcol['column_name'])
-            edge['to_cols'].append(fkcol['r_column_name'])
-            edge['cgid'] = cgid
+                edge['from_cols'].append(fkcol['column_name'])
+                edge['to_cols'].append(fkcol['r_column_name'])
+                edge['cgid'] = cgid
 
-            table = node_dict.get(resolve_node_id(fkcol["table_name"]))
-            r_table = node_dict.get(resolve_node_id(fkcol["r_table_name"]))
-            if table and r_table:
-                for col in table['columns']:
-                    if col['name'] == fkcol['column_name']:
-                        col['is_fk'] = True
-                        col['cgid'] = cgid
+                table = node_dict.get(resolve_node_id(fkcol["table_name"], fkcol.get("table_schema")))
+                r_table = node_dict.get(resolve_node_id(fkcol["r_table_name"], fkcol.get("r_table_schema")))
+                if table and r_table:
+                    for col in table['columns']:
+                        if col['name'] == fkcol['column_name']:
+                            col['is_fk'] = True
+                            col['cgid'] = cgid
 
-                for col in r_table['columns']:
-                    if col['name'] == fkcol['r_column_name']:
-                        # FIXME: this is incomplete, seting PK based on FK constraints is not enough
-                        # there may be unreferenced PKs which will be missed
-                        col['is_pk'] = True
-                        col['cgid'] = f"{fkcol['r_table_name']}-{fkcol['r_column_name']}"
+                    for col in r_table['columns']:
+                        if col['name'] == fkcol['r_column_name']:
+                            # FIXME: this is incomplete, seting PK based on FK constraints is not enough
+                            # there may be unreferenced PKs which will be missed
+                            col['is_pk'] = True
+                            col['cgid'] = qualify(fkcol.get("r_table_schema"), f"{fkcol['r_table_name']}-{fkcol['r_column_name']}")
 
         # connect the edge to the topmost referenced column and to its FK column
         for edge in edge_dict.values():
@@ -351,12 +408,19 @@ def draw_graph(request, database):
                     edge['from_col'] = edge['from_cols'][edge['to_cols'].index(col['name'])]
                     break
 
-        database_name = (
-            "sqlite3" if database.db_type == "sqlite" else database.service
-        )
-        layout_name = f"{database_name}@{data.get('schema')}"
+        def has_column(node_id, column_name):
+            return any(col['name'] == column_name for col in node_dict[node_id]['columns'])
 
-        layout_obj = ERDLayout.objects.filter(name=layout_name, connection=Connection.objects.get(id=data.get("database_index"))).first()
+        # drop edges that do not connect two columns
+        edge_dict = {
+            cgid: edge for cgid, edge in edge_dict.items()
+            if has_column(edge['from'], edge['from_col']) and has_column(edge['to'], edge['to_col'])
+        }
+
+        schema_data = {
+            "schemas": selected_schemas,
+            "available_schemas": available_schemas,
+        } if multi_schema else {}
 
         if layout_obj:
             layout_data = layout_obj.layout
@@ -402,12 +466,19 @@ def draw_graph(request, database):
                 table_is_new = table_id not in saved_node_ids
                 has_new_columns = bool(column_ids - saved_node_ids)
 
-                has_changed_pks = any(
-                    layout_nodes.get(f"{table_id}_{column['name']}", {}).get("data", {}).get("is_pk") != column["is_pk"]
+                has_changed_keys = any(
+                    layout_nodes.get(f"{table_id}_{column['name']}", {}).get("data", {}).get(key) != column[key]
                     for column in table_data.get("columns", [])
+                    for key in ("is_pk", "is_fk")
                 )
 
-                if table_is_new or has_new_columns or has_changed_pks:
+                saved_table_data = layout_nodes.get(table_id, {}).get("data", {})
+                has_changed_name = (
+                    saved_table_data.get("label") != table_data["label"]
+                    or saved_table_data.get("schema") != table_data.get("schema")
+                )
+
+                if table_is_new or has_new_columns or has_changed_keys or has_changed_name:
                     new_nodes.append(table_data)
 
             new_edges = [
@@ -422,11 +493,13 @@ def draw_graph(request, database):
                 "layout": layout_data,
                 "new_nodes": new_nodes,
                 "new_edges": new_edges,
+                **schema_data,
             })
 
         response_data = {
             "nodes": list(node_dict.values()),
             "edges": list(edge_dict.values()),
+            **schema_data,
         }
 
     except Exception as exc:
@@ -440,12 +513,7 @@ def save_graph_state(request):
         data = request.data
         database_index = data.get("database_index")
         layout = data.get("layout")
-        database_name = (
-            "sqlite3"
-            if os.path.isfile(data.get("database_name"))
-            else data.get("database_name")
-        )
-        layout_name = f"{database_name}@{data.get('schema')}"
+        layout_name = get_erd_layout_name(data.get("database_name"), data.get("schema"))
         conn = Connection.objects.filter(id=database_index, user_id=request.user.id).first()
 
         if not conn:

@@ -88,6 +88,7 @@ class ERDGraphTests(TestCase):
         self.client.post = partial(self.client.post, content_type="application/json")
         self.request_data = {
             "database_index": self.test_connection.id,
+            "database_name": self.sqlite_path,
             "workspace_id": "erd",
             "schema": "",
         }
@@ -162,7 +163,7 @@ class ERDGraphTests(TestCase):
                     "id": f"{node['id']}_{column['name']}",
                     "type": "column",
                     "parentNode": node["id"],
-                    "data": {"label": column["name"], "is_pk": column["is_pk"]},
+                    "data": {"label": column["name"], "is_pk": column["is_pk"], "is_fk": column["is_fk"]},
                 })
 
         # old layout: no PK flag on product_tags.tag, edge without column lists

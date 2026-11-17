@@ -367,9 +367,11 @@ describe("useTabsStore", () => {
     expect(tab.component).toBe("ERDTab");
   });
 
-  it("should create an ERD tab without schema arg provided", async () => {
+  it("should create an SQLite ERD tab without schema arg provided", async () => {
     const store = useTabsStore();
     await store.createWorkspaceTab(0);
+    store.selectedPrimaryTab.metaData.selectedDBMS = "sqlite";
+    store.selectedPrimaryTab.metaData.selectedDatabase = "/tmp/test.db";
     store.createERDTab();
     const tab = store.selectedPrimaryTab.metaData.secondaryTabs.find(
       (tab) => tab.name === "ERD"
@@ -377,6 +379,41 @@ describe("useTabsStore", () => {
     expect(tab).toBeTruthy();
     expect(tab.component).toBe("ERDTab");
   });
+
+  it("should create one database ERD tab per database without schema arg provided", async () => {
+    const store = useTabsStore();
+    await store.createWorkspaceTab(0);
+    store.selectedPrimaryTab.metaData.selectedDBMS = "postgresql";
+    store.selectedPrimaryTab.metaData.selectedDatabase = "TestDatabase";
+    store.createERDTab();
+    store.createERDTab();
+    const tabs = store.selectedPrimaryTab.metaData.secondaryTabs.filter(
+      (tab) => tab.name === "ERD: TestDatabase"
+    );
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].component).toBe("ERDTab");
+  });
+
+  it.each(["mysql", "mariadb"])(
+    "should create %s ERD tabs that do not depend on the active database",
+    async (dbms) => {
+      const store = useTabsStore();
+      await store.createWorkspaceTab(0);
+      store.selectedPrimaryTab.metaData.selectedDBMS = dbms;
+      store.selectedPrimaryTab.metaData.selectedDatabase = "ActiveDatabase";
+      store.createERDTab("classicmodels");
+      store.createERDTab();
+      const erdTabs = store.selectedPrimaryTab.metaData.secondaryTabs.filter(
+        (tab) => tab.component === "ERDTab"
+      );
+      expect(
+        erdTabs.map((tab) => [tab.name, tab.metaData.databaseName])
+      ).toEqual([
+        ["ERD: classicmodels", ""],
+        ["ERD", ""],
+      ]);
+    }
+  );
 
   it("should create a Data Editor tab", () => {
     const store = useTabsStore();

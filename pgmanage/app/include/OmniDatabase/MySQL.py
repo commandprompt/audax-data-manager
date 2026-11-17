@@ -265,7 +265,7 @@ class MySQL:
         return self.Query('show databases', True, True)
 
     def QuerySchemas(self):
-        return self.connection.Query('select schema_name as schema_name from information_schema.schemata', True)
+        return self.connection.Query('select schema_name as schema_name, schema_name as name_raw from information_schema.schemata order by schema_name', True)
 
     def QueryTables(self, all_schemas=False, schema=None):
         query_filter = ''
@@ -309,6 +309,7 @@ class MySQL:
             from information_schema.columns c,
                  information_schema.tables t
             where t.table_name = c.table_name
+              and t.table_schema = c.table_schema
               and t.table_type in ('BASE TABLE', 'SYSTEM VIEW')
             {0}
             order by c.table_name,
@@ -340,8 +341,13 @@ class MySQL:
                    r.update_rule as "update_rule",
                    r.delete_rule as "delete_rule"
             from information_schema.table_constraints i
-            left join information_schema.key_column_usage k on i.constraint_name = k.constraint_name
-            left join information_schema.referential_constraints r on i.constraint_name = r.constraint_name
+            left join information_schema.key_column_usage k
+                   on i.constraint_name = k.constraint_name
+                  and i.constraint_schema = k.constraint_schema
+                  and i.table_name = k.table_name
+            left join information_schema.referential_constraints r
+                   on i.constraint_name = r.constraint_name
+                  and i.constraint_schema = r.constraint_schema
             where i.constraint_type = 'FOREIGN KEY'
             {0}
             order by i.constraint_name,
@@ -385,8 +391,13 @@ class MySQL:
                    r.delete_rule as "delete_rule",
                    k.ordinal_position as "ordinal_position"
             from information_schema.table_constraints i
-            left join information_schema.key_column_usage k on i.constraint_name = k.constraint_name
-            left join information_schema.referential_constraints r on i.constraint_name = r.constraint_name
+            left join information_schema.key_column_usage k
+                   on i.constraint_name = k.constraint_name
+                  and i.constraint_schema = k.constraint_schema
+                  and i.table_name = k.table_name
+            left join information_schema.referential_constraints r
+                   on i.constraint_name = r.constraint_name
+                  and i.constraint_schema = r.constraint_schema
             where i.constraint_type = 'FOREIGN KEY'
             {0}
             order by i.constraint_name,
@@ -433,7 +444,7 @@ class MySQL:
         else:
             if table:
                 query_filter = "and t.table_name = '{0}' ".format(table)
-        query_filter = "and concat('pk_', t.table_name) = '{0}' ".format(pkey)
+        query_filter += "and concat('pk_', t.table_name) = '{0}' ".format(pkey)
         return self.Query('''
             select distinct k.column_name as "column_name",
                    k.ordinal_position as "ordinal_position"

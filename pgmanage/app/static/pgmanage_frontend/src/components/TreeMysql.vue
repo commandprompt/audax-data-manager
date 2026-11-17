@@ -96,6 +96,13 @@ export default {
         cm_databases: [
           this.cmRefreshObject,
           {
+            label: "ER Diagram",
+            icon: "fab fa-hubspot",
+            onClick: () => {
+              tabsStore.createERDTab();
+            },
+          },
+          {
             label: "Create Database",
             icon: "fas fa-plus",
             onClick: () => {

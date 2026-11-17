@@ -9,6 +9,7 @@ const DEFAULT_LAYOUT_OPTIONS = {
   tableGapX: 80,
   tableGapY: 80,
   snapGrid: [10, 10],
+  offsetY: 0,
 };
 
 function snapValue(value, gridSize) {
@@ -48,7 +49,7 @@ function getLayoutedNodes(nodes, internalNodes, options = {}) {
     gridY,
   );
 
-  let currentY = snapValue(layoutOptions.padding, gridY);
+  let currentY = snapValue(layoutOptions.padding + layoutOptions.offsetY, gridY);
   let index = 0;
 
   for (
