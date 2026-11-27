@@ -1,5 +1,6 @@
 import moment from "moment";
-import { showAlertText, showToast } from "../notification_control";
+import { messageModalStore } from "../stores/stores_initializer";
+import { showToast } from "../notification_control";
 import axios from "axios";
 
 export class requestHistoryQueue {
@@ -119,9 +120,11 @@ export function axiosHooks(logger, axiosInstance) {
         )} \nprevious ${requestHistory.getLength()} requests:\n\t${previous_data}`
       );
       if (error.response && error.response.status === 401) {
-        showAlertText("User not authenticated, please reload the page.");
+        messageModalStore.showAlertModal(
+          "User not authenticated, please reload the page."
+        );
       } else if (error.code === "ERR_NETWORK") {
-        showAlertText(
+        messageModalStore.showAlertModal(
           `${error.message}. Try reloading the application if the issue persists.`
         );
       }

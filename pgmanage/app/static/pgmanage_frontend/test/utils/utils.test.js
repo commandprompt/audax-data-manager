@@ -5,6 +5,7 @@ import {
   findChild,
   findNode,
   splitStringInHalf,
+  isSafeHtml,
 } from "@src/utils.js";
 
 describe("utils.js", () => {
@@ -131,6 +132,43 @@ describe("utils.js", () => {
 
     it("handles an empty string", () => {
       expect(splitStringInHalf("")).toEqual(["", ""]);
+    });
+  });
+
+  describe("isSafeHtml", () => {
+    it("accepts plain text", () => {
+      expect(isSafeHtml("Just a message.")).toBe(true);
+      expect(isSafeHtml("")).toBe(true);
+    });
+
+    it("accepts the allowed tags", () => {
+      expect(
+        isSafeHtml(
+          "<b>b</b><strong>strong</strong><i>i</i><em>em</em><mark>mark</mark>" +
+            "<small>small</small><del>del</del><ins>ins</ins><sub>sub</sub><sup>sup</sup><br>"
+        )
+      ).toBe(true);
+    });
+
+    it("rejects tags that are not allowed", () => {
+      expect(isSafeHtml("<script>alert(1)</script>")).toBe(false);
+      expect(isSafeHtml("<div>text</div>")).toBe(false);
+      expect(isSafeHtml("<iframe src='x'></iframe>")).toBe(false);
+      expect(isSafeHtml("<img src=x onerror=alert(1)>")).toBe(false);
+    });
+
+    it("rejects tags that have attributes", () => {
+      expect(isSafeHtml('<b onclick="alert(1)">text</b>')).toBe(false);
+      expect(isSafeHtml('<b class="x">text</b>')).toBe(false);
+    });
+
+    it("rejects links", () => {
+      expect(isSafeHtml('<a href="https://example.com">link</a>')).toBe(false);
+      expect(isSafeHtml('<a href="javascript:alert(1)">link</a>')).toBe(false);
+    });
+
+    it("rejects an unsafe tag that is nested in an allowed tag", () => {
+      expect(isSafeHtml("<b>text<script>alert(1)</script></b>")).toBe(false);
     });
   });
 });

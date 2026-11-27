@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import ShortUniqueId from "short-unique-id";
 import { connectionsStore, messageModalStore, dbMetadataStore } from "./stores_initializer";
-import { showToast, showConfirm } from "../notification_control";
+import { showToast } from "../notification_control";
 import { createRequest, removeContext } from "../long_polling";
 import moment from "moment";
 import { emitter } from "../emitter";
@@ -210,9 +210,13 @@ const useTabsStore = defineStore("tabs", {
     beforeCloseTab(e, confirmFunction) {
       if (e) {
         if (e.clientX == 0 && e.clientY == 0) {
-          showConfirm("Are you sure you want to remove this tab?", function () {
-            confirmFunction();
-          });
+          messageModalStore.showModal(
+            "Are you sure you want to remove this tab?",
+            () => {
+              confirmFunction();
+            },
+            null
+          );
         } else {
           confirmFunction();
         }

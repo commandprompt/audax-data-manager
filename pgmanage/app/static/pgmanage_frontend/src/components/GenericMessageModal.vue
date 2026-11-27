@@ -7,7 +7,7 @@
       role="dialog"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header align-items-center">
             <button
@@ -22,9 +22,20 @@
           <div
             id="generic_modal_message_content"
             class="modal-body"
-            style="white-space: pre-line; word-break: break-word"
+            style="word-break: break-word"
           >
-            {{ store.message }}
+            <span v-if="safeMessageHtml" v-html="safeMessageHtml"></span>
+            <span v-else style="white-space: pre-line">{{ textMessage }}</span>
+            <input
+              v-if="store.hasInput"
+              ref="messageInput"
+              id="generic_modal_message_input"
+              type="text"
+              class="form-control"
+              v-model="store.inputValue"
+              :placeholder="store.inputPlaceholder"
+              @keyup.enter="store.executeSuccess"
+            />
             <div
               v-for="(checkbox, index) in store.checkboxes"
               :key="index"
@@ -48,20 +59,23 @@
             <button
               id="generic_modal_message_yes"
               type="button"
-              class="btn btn-primary"
+              class="btn"
+              :class="confirmButton.class"
               data-bs-dismiss="modal"
               @click="store.executeSuccess"
             >
-              Yes
+              {{ confirmButton.label }}
             </button>
             <button
+              v-if="!store.okOnly"
               id="generic_modal_message_no"
               type="button"
-              class="btn btn-danger"
+              class="btn"
+              :class="cancelButton.class"
               data-bs-dismiss="modal"
               @click="store.executeCancel"
             >
-              No
+              {{ cancelButton.label }}
             </button>
           </div>
         </div>
@@ -72,6 +86,7 @@
 
 <script>
 import { messageModalStore } from "../stores/stores_initializer";
+import { isSafeHtml } from "../utils";
 import { Modal } from "bootstrap";
 
 export default {
@@ -83,6 +98,23 @@ export default {
   computed: {
     store() {
       return messageModalStore;
+    },
+    safeMessageHtml() {
+      const html = this.store.messageHtml;
+      return html && isSafeHtml(html) ? html : "";
+    },
+    textMessage() {
+      return this.store.messageHtml || this.store.message;
+    },
+    confirmButton() {
+      if (this.store.okOnly || this.store.hasInput)
+        return { label: "Ok", class: "btn-success" };
+      return { label: "Yes", class: "btn-primary" };
+    },
+    cancelButton() {
+      if (this.store.hasInput)
+        return { label: "Cancel", class: "btn-secondary" };
+      return { label: "No", class: "btn-danger" };
     },
   },
   mounted() {
@@ -101,6 +133,17 @@ export default {
       }
     });
     let messageModalEl = document.getElementById("generic_modal_message");
+
+    messageModalEl.addEventListener("hidden.bs.modal", () => {
+      if (this.store.visible) return;
+      this.store.resetModal();
+    });
+
+    messageModalEl.addEventListener("shown.bs.modal", () => {
+      if (!this.store.hasInput) return;
+      this.$refs.messageInput?.focus();
+      this.$refs.messageInput?.select();
+    });
 
     messageModalEl.addEventListener("hide.bs.modal", (event) => {
       const activeEl = document.activeElement;

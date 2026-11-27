@@ -68,6 +68,31 @@ function flashHighlight(el) {
   el.addEventListener("animationcancel", clearHighlight, { once: true });
 }
 
+const ALLOWED_HTML_TAGS = [
+  "B",
+  "BR",
+  "STRONG",
+  "I",
+  "EM",
+  "MARK",
+  "SMALL",
+  "DEL",
+  "INS",
+  "SUB",
+  "SUP",
+];
+
+// Check that the HTML has only allowed tags and no attributes.
+function isSafeHtml(html) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  return [...template.content.querySelectorAll("*")].every(
+    (node) =>
+      ALLOWED_HTML_TAGS.includes(node.tagName) && node.attributes.length === 0
+  );
+}
+
 export {
   truncateText,
   extractOrderByClause,
@@ -75,4 +100,5 @@ export {
   findNode,
   splitStringInHalf,
   flashHighlight,
+  isSafeHtml,
 };

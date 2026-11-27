@@ -2,12 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import axios from "axios";
 import * as logging_service from "@src/logging/service";
 import { requestHistory } from "@src/logging/service";
-import { showAlertText, showToast } from "@src/notification_control";
+import { showToast } from "@src/notification_control";
+import { messageModalStore } from "@src/stores/stores_initializer";
 
 Date.now = vi.fn(() => new Date("2024-08-05T12:33:37.000Z"));
 
+vi.mock("@src/stores/stores_initializer", () => ({
+  messageModalStore: {
+    showAlertModal: vi.fn(),
+  },
+}));
+
 vi.mock("@src/notification_control", () => ({
-  showAlertText: vi.fn(),
   showToast: vi.fn(),
 }));
 
@@ -130,7 +136,7 @@ describe("axiosHooks", () => {
     try {
       await onError(error);
     } catch (err) {
-      expect(showAlertText).toHaveBeenCalledWith(
+      expect(messageModalStore.showAlertModal).toHaveBeenCalledWith(
         "User not authenticated, please reload the page."
       );
     }
@@ -144,7 +150,7 @@ describe("axiosHooks", () => {
     try {
       await onError(error);
     } catch (err) {
-      expect(showAlertText).toHaveBeenCalledWith(
+      expect(messageModalStore.showAlertModal).toHaveBeenCalledWith(
         `${error.message}. Try reloading the application if the issue persists.`
       );
     }

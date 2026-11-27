@@ -29,10 +29,7 @@
 <script>
 import TreeMixin from "../mixins/power_tree.js";
 import { PowerTree } from "@onekiloparsec/vue-power-tree";
-import {
-  showConfirm,
-  showToast,
-} from "../notification_control";
+import { showToast } from "../notification_control";
 import { emitter } from "../emitter";
 import { messageModalStore, tabsStore } from "../stores/stores_initializer";
 
@@ -208,13 +205,11 @@ export default {
       let placeholder = "Snippet Name";
       if (mode === "folder") placeholder = "Folder Name";
 
-      showConfirm(
-        `<div class="form-group">
-          <input id="element_name" required class="form-control" placeholder="${placeholder}" style="width: 100%;">
-        </div>
-        `,
-        () => {
-          let value = document.getElementById("element_name").value.trim();
+      messageModalStore.showPromptModal(
+        "",
+        "",
+        (inputValue) => {
+          let value = inputValue.trim();
           if (!value) {
             showToast("error", "Name cannot be empty.");
             return;
@@ -224,7 +219,7 @@ export default {
             .post("/new_node_snippet/", {
               snippet_id: node.data.id,
               mode: mode,
-              name: document.getElementById("element_name").value,
+              name: value,
             })
             .then((resp) => {
               this.refreshTree(node);
@@ -236,44 +231,32 @@ export default {
             });
         },
         null,
-        () => {
-          let input = document.getElementById("element_name");
-          input.focus();
-          input.select();
-        }
+        placeholder
       );
     },
     renameNodeSnippet(node) {
-      showConfirm(
-        `<input id="element_name" class="form-control" value="${node.title}" style="width: 100%;">`,
-        () => {
-          let value = document.getElementById("element_name").value.trim();
-          if (!value) {
-            showToast("error", "Name cannot be empty.");
-            return;
-          }
-
-          this.api
-            .post("/rename_node_snippet/", {
-              id: node.data.id,
-              mode: node.data.type,
-              name: document.getElementById("element_name").value,
-            })
-            .then((resp) => {
-              this.refreshTree(this.getParentNode(node));
-
-              this.$emit("treeUpdated");
-            })
-            .catch((error) => {
-              this.nodeOpenError(error, node);
-            });
-        },
-        null,
-        () => {
-          let input = document.getElementById("element_name");
-          input.focus();
+      messageModalStore.showPromptModal("", node.title, (inputValue) => {
+        let value = inputValue.trim();
+        if (!value) {
+          showToast("error", "Name cannot be empty.");
+          return;
         }
-      );
+
+        this.api
+          .post("/rename_node_snippet/", {
+            id: node.data.id,
+            mode: node.data.type,
+            name: value,
+          })
+          .then((resp) => {
+            this.refreshTree(this.getParentNode(node));
+
+            this.$emit("treeUpdated");
+          })
+          .catch((error) => {
+            this.nodeOpenError(error, node);
+          });
+      });
     },
     deleteNodeSnippet(node) {
       messageModalStore.showModal(

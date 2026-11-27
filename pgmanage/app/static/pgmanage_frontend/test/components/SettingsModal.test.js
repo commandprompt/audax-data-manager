@@ -6,9 +6,9 @@ import axios from "axios";
 import { Tab } from "bootstrap";
 
 vi.mock("@src/notification_control", () => {
-  const showAlertText = vi.fn();
+  const showToast = vi.fn();
   return {
-    showAlertText,
+    showToast,
   };
 });
 

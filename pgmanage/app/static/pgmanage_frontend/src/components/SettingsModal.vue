@@ -215,10 +215,10 @@
 <script>
 import { refreshHeights } from '../workspace'
 import axios from 'axios'
-import { showAlertText, showToast } from '../notification_control'
+import { showToast } from '../notification_control'
 import { minFontSize, maxFontSize } from '../constants'
 import moment from 'moment'
-import { settingsStore } from '../stores/stores_initializer'
+import { settingsStore, messageModalStore } from '../stores/stores_initializer'
 import { useVuelidate } from '@vuelidate/core'
 import { required, maxLength } from '@vuelidate/validators'
 import { Modal } from 'bootstrap'
@@ -500,7 +500,7 @@ export default {
         .then((resp) => {
           const binary_paths = Object.entries(resp.data.data)
             .map(([key, value]) => `${key}: ${value}`).join('\n')
-          showAlertText(binary_paths)
+          messageModalStore.showAlertModal(binary_paths)
         })
         .catch((error) => {
           handleError(error);

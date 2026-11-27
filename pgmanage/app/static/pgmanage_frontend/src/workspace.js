@@ -1,10 +1,8 @@
 import ContextMenu from '@imengyu/vue3-context-menu'
 import { startLoading } from './ajax_control'
-import { showAlertHtml, showConfirm } from './notification_control'
 import { emitter } from './emitter'
-import { tabsStore, connectionsStore } from './stores/stores_initializer.js'
+import { tabsStore, connectionsStore, messageModalStore } from './stores/stores_initializer.js'
 import { Modal } from 'bootstrap'
-import escape from 'lodash/escape'
 
 
 /// <summary>
@@ -16,7 +14,9 @@ function checkBeforeChangeDatabase(p_cancel_function, p_ok_function) {
 
   for (const tab of tabsStore.selectedPrimaryTab.metaData.secondaryTabs) {
     if(["edit", "alter", "monitoring_dashboard"].includes(tab.metaData.mode)) {
-      showAlertHtml('Cannot change the active database.<br>Please close any open tabs of the following types first: <br/><br/><b>Edit Data<br/><br/>Alter Table<br/><br/>Monitoring Dashboard');
+      messageModalStore.showAlertHtmlModal(
+        "Cannot change the active database.<br>Please close any open tabs of the following types first: <br><br><b>Edit Data<br><br>Alter Table<br><br>Monitoring Dashboard</b>"
+      );
       if (p_cancel_function!=null) {
         p_cancel_function();
       }
@@ -36,28 +36,9 @@ function checkBeforeChangeDatabase(p_cancel_function, p_ok_function) {
 /// </summary>
 function renameTab(tab) {
 
-	showConfirm('<input id="tab_name"/ class="form-control" value="' + escape(tab.name) + '" style="width: 100%;">',
-    function() {
-      tab.name = document.getElementById('tab_name').value
-    },
-    null,
-    function() {
-      var v_input = document.getElementById('tab_name');
-      v_input.focus();
-      v_input.selectionStart = 0;
-      v_input.selectionEnd = 10000;
-    }
-  );
-	var v_input = document.getElementById('tab_name');
-	v_input.onkeydown = function() {
-		if (event.keyCode == 13) {
-      document.getElementById('modal_message_ok').click();
-    }
-		else if (event.keyCode == 27) {
-      document.getElementById('modal_message_cancel').click();
-    }
-	}
-
+  messageModalStore.showPromptModal("", tab.name, (value) => {
+    tab.name = value;
+  });
 }
 
 

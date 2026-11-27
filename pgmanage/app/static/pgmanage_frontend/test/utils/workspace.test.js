@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import ContextMenu from "@imengyu/vue3-context-menu";
 import { startLoading } from "@src/ajax_control";
-import { showAlertHtml, showConfirm } from "@src/notification_control";
 import { emitter } from "@src/emitter";
-import { tabsStore, connectionsStore } from "@src/stores/stores_initializer.js";
+import {
+  tabsStore,
+  connectionsStore,
+  messageModalStore,
+} from "@src/stores/stores_initializer.js";
 import { Modal } from "bootstrap";
 import {
   checkBeforeChangeDatabase,
@@ -18,11 +21,6 @@ vi.mock("@imengyu/vue3-context-menu", () => ({
 
 vi.mock("@src/ajax_control", () => ({
   startLoading: vi.fn(),
-}));
-
-vi.mock("@src/notification_control", () => ({
-  showAlertHtml: vi.fn(),
-  showConfirm: vi.fn(),
 }));
 
 vi.mock("@src/emitter", () => ({
@@ -41,6 +39,11 @@ vi.mock("@src/stores/stores_initializer.js", () => ({
     connections: [],
     groups: [],
     remote_terminals: [],
+  },
+  messageModalStore: {
+    showAlertModal: vi.fn(),
+    showAlertHtmlModal: vi.fn(),
+    showPromptModal: vi.fn(),
   },
 }));
 
@@ -68,7 +71,7 @@ describe("workspace.js", () => {
       expect(result).toBe(true);
       expect(okFunction).toHaveBeenCalled();
       expect(cancelFunction).not.toHaveBeenCalled();
-      expect(showAlertHtml).not.toHaveBeenCalled();
+      expect(messageModalStore.showAlertHtmlModal).not.toHaveBeenCalled();
     });
 
     it.each(["edit", "alter", "monitoring_dashboard"])(
@@ -85,7 +88,7 @@ describe("workspace.js", () => {
         expect(result).toBe(false);
         expect(cancelFunction).toHaveBeenCalled();
         expect(okFunction).not.toHaveBeenCalled();
-        expect(showAlertHtml).toHaveBeenCalled();
+        expect(messageModalStore.showAlertHtmlModal).toHaveBeenCalled();
       },
     );
 
@@ -101,84 +104,27 @@ describe("workspace.js", () => {
   });
 
   describe("renameTab", () => {
-    beforeEach(() => {
-      document.body.innerHTML = `
-        <input id="tab_name" value="" />
-        <button id="modal_message_ok"></button>
-        <button id="modal_message_cancel"></button>
-      `;
-    });
-
-    it("shows a confirm dialog pre-filled with the tab's current name", () => {
+    it("opens a prompt pre-filled with the tab's current name", () => {
       const tab = { name: "My Tab" };
 
       renameTab(tab);
 
-      expect(showConfirm).toHaveBeenCalledWith(
-        expect.stringContaining('value="My Tab"'),
-        expect.any(Function),
-        null,
+      expect(messageModalStore.showPromptModal).toHaveBeenCalledWith(
+        "",
+        "My Tab",
         expect.any(Function),
       );
     });
 
-    it("updates the tab name from the input's value when confirmed", () => {
+    it("updates the tab name from the value the prompt returns", () => {
       const tab = { name: "My Tab" };
 
       renameTab(tab);
-
-      document.getElementById("tab_name").value = "Renamed Tab";
-      const confirmCallback = showConfirm.mock.calls[0][1];
-      confirmCallback();
+      const confirmCallback =
+        messageModalStore.showPromptModal.mock.calls[0][2];
+      confirmCallback("Renamed Tab");
 
       expect(tab.name).toBe("Renamed Tab");
-    });
-
-    it("focuses and selects the input via the shown callback", () => {
-      const tab = { name: "My Tab" };
-
-      renameTab(tab);
-
-      const input = document.getElementById("tab_name");
-      input.value = "My Tab";
-      const focusSpy = vi.spyOn(input, "focus");
-      const shownCallback = showConfirm.mock.calls[0][3];
-
-      shownCallback();
-
-      expect(focusSpy).toHaveBeenCalled();
-      expect(input.selectionStart).toBe(0);
-      // selectionEnd clamps to the input's actual text length, well below
-      // the 10000 the source sets, confirming the whole value gets selected.
-      expect(input.selectionEnd).toBe(input.value.length);
-    });
-
-    it("clicks the ok button when Enter is pressed in the input", () => {
-      renameTab({ name: "My Tab" });
-
-      const okSpy = vi.spyOn(
-        document.getElementById("modal_message_ok"),
-        "click",
-      );
-      window.event = { keyCode: 13 };
-
-      document.getElementById("tab_name").onkeydown();
-
-      expect(okSpy).toHaveBeenCalled();
-    });
-
-    it("clicks the cancel button when Escape is pressed in the input", () => {
-      renameTab({ name: "My Tab" });
-
-      const cancelSpy = vi.spyOn(
-        document.getElementById("modal_message_cancel"),
-        "click",
-      );
-      window.event = { keyCode: 27 };
-
-      document.getElementById("tab_name").onkeydown();
-
-      expect(cancelSpy).toHaveBeenCalled();
     });
   });
 

@@ -3,10 +3,9 @@ import { flushPromises, mount } from "@vue/test-utils";
 import TreeSnippets from "@src/components/TreeSnippets.vue";
 import { emitter } from "@src/emitter";
 import { messageModalStore, tabsStore } from "@src/stores/stores_initializer";
-import { showConfirm, showToast } from "@src/notification_control";
+import { showToast } from "@src/notification_control";
 
 vi.mock("@src/notification_control", () => ({
-  showConfirm: vi.fn(),
   showToast: vi.fn(),
 }));
 
@@ -22,6 +21,7 @@ vi.mock("@src/emitter", () => ({
 vi.mock("@src/stores/stores_initializer", () => ({
   messageModalStore: {
     showModal: vi.fn(),
+    showPromptModal: vi.fn(),
   },
   tabsStore: {
     tabs: [],
@@ -484,11 +484,12 @@ describe("TreeSnippets.vue", () => {
 
     wrapper.vm.newNodeSnippet(node, "snippet");
 
-    expect(showConfirm).toHaveBeenCalledWith(
-      expect.stringContaining('placeholder="Snippet Name"'),
+    expect(messageModalStore.showPromptModal).toHaveBeenCalledWith(
+      "",
+      "",
       expect.any(Function),
       null,
-      expect.any(Function),
+      "Snippet Name",
     );
   });
 
@@ -504,11 +505,12 @@ describe("TreeSnippets.vue", () => {
 
     wrapper.vm.newNodeSnippet(node, "folder");
 
-    expect(showConfirm).toHaveBeenCalledWith(
-      expect.stringContaining('placeholder="Folder Name"'),
+    expect(messageModalStore.showPromptModal).toHaveBeenCalledWith(
+      "",
+      "",
       expect.any(Function),
       null,
-      expect.any(Function),
+      "Folder Name",
     );
   });
 
@@ -522,12 +524,12 @@ describe("TreeSnippets.vue", () => {
       },
     };
 
-    document.body.innerHTML = `<input id="element_name" value="   ">`;
 
     wrapper.vm.newNodeSnippet(node, "snippet");
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("   ");
 
     expect(showToast).toHaveBeenCalledWith("error", "Name cannot be empty.");
     expect(wrapper.vm.api.post).not.toHaveBeenCalled();
@@ -549,12 +551,12 @@ describe("TreeSnippets.vue", () => {
       data: {},
     });
 
-    document.body.innerHTML = `<input id="element_name" value="Snippet 1">`;
 
     wrapper.vm.newNodeSnippet(node, "snippet");
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("Snippet 1");
 
     await flushPromises();
 
@@ -583,12 +585,12 @@ describe("TreeSnippets.vue", () => {
 
     wrapper.vm.api.post.mockRejectedValue(error);
 
-    document.body.innerHTML = `<input id="element_name" value="Snippet 1">`;
 
     wrapper.vm.newNodeSnippet(node, "snippet");
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("Snippet 1");
 
     await flushPromises();
 
@@ -605,12 +607,12 @@ describe("TreeSnippets.vue", () => {
       },
     };
 
-    document.body.innerHTML = `<input id="element_name" value="   ">`;
 
     wrapper.vm.renameNodeSnippet(node);
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("   ");
 
     expect(showToast).toHaveBeenCalledWith("error", "Name cannot be empty.");
     expect(wrapper.vm.api.post).not.toHaveBeenCalled();
@@ -640,12 +642,12 @@ describe("TreeSnippets.vue", () => {
       data: {},
     });
 
-    document.body.innerHTML = `<input id="element_name" value="Snippet renamed">`;
 
     wrapper.vm.renameNodeSnippet(node);
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("Snippet renamed");
 
     await flushPromises();
 
@@ -674,12 +676,12 @@ describe("TreeSnippets.vue", () => {
 
     wrapper.vm.api.post.mockRejectedValue(error);
 
-    document.body.innerHTML = `<input id="element_name" value="Snippet renamed">`;
 
     wrapper.vm.renameNodeSnippet(node);
 
-    const confirmCallback = showConfirm.mock.calls[0][1];
-    confirmCallback();
+    const confirmCallback =
+      messageModalStore.showPromptModal.mock.calls[0][2];
+    confirmCallback("Snippet renamed");
 
     await flushPromises();
 

@@ -1,7 +1,7 @@
 import axios from "axios";
-import { showConfirm, showToast } from "../notification_control";
+import { showToast } from "../notification_control";
 import { emitter } from "../emitter";
-import { tabsStore } from "../stores/stores_initializer";
+import { tabsStore, messageModalStore } from "../stores/stores_initializer";
 import { handleError } from "../logging/utils";
 
 function executeSnippet(id) {
@@ -25,8 +25,8 @@ function buildSnippetContextMenuObjects(mode, object, snippetText, callback) {
   const isSaveMode = mode === "save";
 
   const handleSaveConfirmation = (file, folder) => {
-    showConfirm(
-      `<b>WARNING</b>, are you sure you want to overwrite file ${file.name}?`,
+    messageModalStore.showModal(
+      `Are you sure you want to overwrite file ${file.name}?`,
       () => {
         emitter.emit("save_snippet_text_confirm", {
           saveObject: {
@@ -37,7 +37,8 @@ function buildSnippetContextMenuObjects(mode, object, snippetText, callback) {
           text: snippetText,
           callback: callback,
         });
-      }
+      },
+      null
     );
   };
 
@@ -46,13 +47,10 @@ function buildSnippetContextMenuObjects(mode, object, snippetText, callback) {
       label: "New Snippet",
       icon: "fas fa-save",
       onClick: function () {
-        showConfirm(
-          `<div class="form-group">
-              <input id="element_name" class="form-control" placeholder="Snippet Name" style="width: 100%;">
-            </div>`,
-          function () {
-            const snippetName = document.getElementById("element_name").value;
-
+        messageModalStore.showPromptModal(
+          "",
+          "",
+          (snippetName) => {
             if (!snippetName) {
               showToast("error", "Name cannot be empty.");
               return;
@@ -68,11 +66,7 @@ function buildSnippetContextMenuObjects(mode, object, snippetText, callback) {
             });
           },
           null,
-          function () {
-            let input = document.getElementById("element_name");
-            input.focus();
-            input.select();
-          }
+          "Snippet Name"
         );
       },
     });

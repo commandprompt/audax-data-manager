@@ -1,7 +1,7 @@
 import BackupTab from "@src/components/BackupTab.vue";
 import UtilityJobs from "@src/components/UtilityJobs.vue";
 import { showAlertText } from "@src/notification_control";
-import { fileManagerStore, settingsStore } from "@src/stores/stores_initializer";
+import { fileManagerStore, messageModalStore, settingsStore } from "@src/stores/stores_initializer";
 import { flushPromises, mount } from "@vue/test-utils";
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,15 +12,13 @@ vi.mock("@src/logging/utils", () => ({
   handleError: vi.fn(),
 }));
 
-vi.mock("@src/notification_control", async (importOriginal) => {
-  const orig = await importOriginal();
-  return { ...orig, showAlertText: vi.fn() };
-});
-
 vi.mock("@src/stores/stores_initializer", async (importOriginal) => {
   const orig = await importOriginal();
   return {
     ...orig,
+    messageModalStore: {
+      showAlertModal: vi.fn(),
+    },
     tabsStore: {
       selectedPrimaryTab: {
         metaData: {
@@ -377,7 +375,9 @@ describe("BackupTab Component", () => {
       data: wrapper.vm.backupOptions,
       backup_type: wrapper.vm.type,
     });
-    expect(showAlertText).toHaveBeenCalledWith("pg_dump command");
+    expect(messageModalStore.showAlertModal).toHaveBeenCalledWith(
+      "pg_dump command"
+    );
   });
 
   it("shows the previewed command via the text-safe alert, never the HTML one", async () => {
@@ -387,7 +387,7 @@ describe("BackupTab Component", () => {
     await wrapper.vm.previewCommand();
     await flushPromises();
 
-    expect(showAlertText).toHaveBeenCalledWith(payload);
+    expect(messageModalStore.showAlertModal).toHaveBeenCalledWith(payload);
   });
 
   it("calls previewCommand and shows an error toast on failure", async () => {

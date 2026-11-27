@@ -339,8 +339,7 @@
 <script>
 import UtilityJobs from "./UtilityJobs.vue";
 import axios from 'axios'
-import { showAlertText } from "../notification_control";
-import { fileManagerStore, tabsStore, settingsStore } from "../stores/stores_initializer";
+import { fileManagerStore, tabsStore, settingsStore, messageModalStore } from "../stores/stores_initializer";
 import { truncateText, flashHighlight } from "../utils";
 import { handleError } from "../logging/utils";
 import { emitter } from "../emitter";
@@ -599,7 +598,7 @@ export default {
         backup_type: this.type
       })
         .then((resp) => {
-          showAlertText(resp.data.command.cmd)
+          messageModalStore.showAlertModal(resp.data.command.cmd)
         })
         .catch((error) => {
           handleError(error);

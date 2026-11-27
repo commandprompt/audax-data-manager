@@ -15,6 +15,12 @@ vi.mock("@src/logging/utils", () => ({
   handleError: vi.fn(),
 }));
 
+vi.mock("@src/stores/stores_initializer", () => ({
+  messageModalStore: {
+    showAlertModal: vi.fn(),
+  },
+}));
+
 describe("long_polling.js", () => {
   let createContext, removeContext, createRequest, SetAcked;
 
